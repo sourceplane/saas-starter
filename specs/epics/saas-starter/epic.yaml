@@ -1,0 +1,40 @@
+# The epic's declaration. metadata.name equals the directory name; metadata.key
+# is the task-key prefix this epic reserves (SA → SA-1, SA-2, …). Owner, target
+# date and health are the platform's — never written here.
+apiVersion: orun.io/v1
+kind: Epic
+metadata:
+  name: saas-starter
+  key: SA
+spec:
+  title: "Vercel's Next.js SaaS Starter on Cloudflare Workers with Supabase Postgres through Hyperdrive"
+  summary: "The Next.js SaaS Starter — Postgres through Drizzle, Stripe Checkout, Customer Portal and webhooks, email/password auth with a jose JWT in a cookie, a session-refreshing middleware, teams with roles, invitations and an activity log — runs on Cloudflare Workers + Static Assets through @opennextjs/cloudflare. Its Postgres is the Supabase project's database reached through Cloudflare Hyperdrive, both provisioned by Terraform through Orun (the Lumen baseline's roots), and its schema is applied by Orun's db-migrate component from the drizzle-kit SQL the template ships. The code stays the code: the one departure is the per-request database client the Workers runtime forces."
+  state: draft
+  milestones:
+    - name: "SA0 — the spec"
+      exitCriteria:
+        - "the doc set and the task contracts are on main"
+      tasks: [SA-1]
+    - name: "SA1 — the app on Workers"
+      exitCriteria:
+        - "apps/web is the upstream template, built by `next build` + `opennextjs-cloudflare build`, with `lib/db/drizzle.ts` exporting a per-request `getDb()` over the HYPERDRIVE binding and `proxy.ts` carrying middleware.ts's logic"
+        - "the wrangler config renders per environment from the cloudflare-hyperdrive root's wiring document (fixture in verify, live in deploy); the Worker secrets are documented, never committed"
+        - "`pnpm typecheck`, `pnpm lint`, `pnpm test` and `pnpm build` are green on main (Checks)"
+        - "`wrangler dev` serves the home page and /sign-in, and sends a signed-out visitor of /dashboard to /sign-in"
+      tasks: [SA-2]
+    - name: "SA2 — the schema through db-migrate"
+      exitCriteria:
+        - "packages/db (@saas/db) carries the template's drizzle-kit SQL as a manifest-listed migration and Lumen's runner builds and plans it offline"
+        - "infra/db-migrate applies it per environment after the supabase root; tests/db verifies the manifest's checksums and the offline plan"
+      tasks: [SA-3]
+    - name: "SA3 — Supabase and Hyperdrive from Terraform"
+      exitCriteria:
+        - "infra/terraform/supabase provisions the project per environment and publishes its credentials as orun secrets"
+        - "infra/terraform/cloudflare-hyperdrive fronts that database and publishes the wiring document the app's deploy renders into the HYPERDRIVE binding"
+        - "both roots pass terraform validate"
+      tasks: [SA-4]
+    - name: "SA4 — ready to instantiate"
+      exitCriteria:
+        - "the README says how to run it locally (Supabase CLI or any Postgres, the seed, Stripe), how to test, preview and deploy it through Orun, and which Worker secrets to set"
+        - "the as-built status records every departure from the upstream template"
+      tasks: [SA-5]
