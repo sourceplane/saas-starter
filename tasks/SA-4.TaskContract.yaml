@@ -1,0 +1,14 @@
+apiVersion: orun.io/v1
+kind: TaskContract
+spec:
+  goal: The Supabase project and the Hyperdrive config fronting its database are provisioned per environment by Terraform through Orun, and the app component reads the Hyperdrive wiring
+  affects:
+    - infra/terraform/supabase
+    - infra/terraform/cloudflare-hyperdrive
+    - apps/web/component.yaml
+    - apps/web/wiring.fixture.json
+    - intent.yaml
+  doneWhen:
+    - terraform validate passes on infra/terraform/supabase and infra/terraform/cloudflare-hyperdrive
+    - the component's secretEnv names match the roots' secretOutputs
+  gates: []

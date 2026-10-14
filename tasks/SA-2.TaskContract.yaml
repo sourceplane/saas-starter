@@ -1,0 +1,19 @@
+apiVersion: orun.io/v1
+kind: TaskContract
+spec:
+  goal: The upstream Next.js SaaS Starter runs on Cloudflare Workers + Static Assets with a per-request Drizzle client over the Hyperdrive binding, a per-environment rendered wrangler config and green checks
+  affects:
+    - apps/web
+    - tests/web
+    - tooling/wire
+    - pnpm-lock.yaml
+    - package.json
+    - pnpm-workspace.yaml
+    - turbo.json
+    - .gitignore
+  doneWhen:
+    - pnpm wire:fixture, typecheck, lint, test and build are green in Checks
+    - wrangler dev serves / and /sign-in and redirects a signed-out /dashboard to /sign-in
+    - the diff against upstream is the forced set (getDb, proxy.ts, Stripe fetch/async webhook, Next 16 config) and nothing else
+  gates:
+    - checks
