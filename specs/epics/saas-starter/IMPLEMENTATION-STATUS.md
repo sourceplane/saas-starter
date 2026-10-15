@@ -169,6 +169,13 @@ the bootstrap helpers, the deployment-record hook, `ai/context/`, `testing/`,
   database generated into `app_private.secrets`, read once per isolate.
   `session.ts` resolves the key per use instead of encoding `AUTH_SECRET` at
   module load.
+- **Row-level security on every table in `public`** (migration
+  `030_row_level_security`, drizzle-kit twin `0002`, `.enableRLS()` in
+  `schema.ts`), with no policy: Supabase's Data API serves `public` to the
+  anon key, and the template's tables — password hashes included — had none
+  (SA-L). The app connects as `postgres`, the tables' owner; the migration
+  refuses to run if that role would be locked out. `tests/db` (PGlite) and
+  the e2e hold it.
 - **`/api/health`** (new): 200 only when the database behind the HYPERDRIVE
   binding answers and both `public.users` and `app_private.secrets` exist.
   The deploy's smoke and both phases' probes read it.
@@ -204,7 +211,7 @@ the bootstrap helpers, the deployment-record hook, `ai/context/`, `testing/`,
 
 See the pull request for the run log. In short: the repository's checks
 (`pnpm install --frozen-lockfile`, `wire:fixture`, typecheck, lint, test —
-32 tests: 27 in `tests/web`, 5 in `tests/db` — build); every
+37 tests: 27 in `tests/web`, 10 in `tests/db` — build); every
 `testing/*.test.sh`; `orun new --status` at v2.58.11, v2.78.4 and 2.79.0;
 `orun validate`; `orun work check`; `terraform fmt`, `init -backend=false`
 and `validate` on both roots. Not verified: a Terraform apply, a db-migrate

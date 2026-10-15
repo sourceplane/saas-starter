@@ -64,8 +64,10 @@ push to main and reads the order off it:
    `WIRING_CLOUDFLARE_HYPERDRIVE` (its id and name).
 3. **db-migrate** — builds `@saas/db` and applies every migration the
    database's `_migrations.applied` ledger does not have, through Supabase's
-   Management API: the template's schema, and `app_private.secrets` with the
-   session key the environment generates for itself.
+   Management API: the template's schema, `app_private.secrets` with the
+   session key the environment generates for itself, and row-level security
+   on every table in `public` — closed to Supabase's Data API, open to the
+   app, which owns them.
 4. **web** — installs, re-renders `wrangler.jsonc` from this environment's
    wiring document, builds with OpenNext, deploys `<reponame>-web-<env>`,
    and smoke-tests it: the home page, and `/api/health`, which answers only
@@ -91,6 +93,7 @@ owner adds one (the product's README, "Connect Stripe").
 | hyperdrive or db-migrate lane: secret resolution failed (`SUPABASE_*`) | the supabase apply for that environment did not publish — read its log; both wait on it, so they show as not run |
 | hyperdrive apply: Authentication error (10000) | the token in play is workers-deploy, which deliberately cannot touch Hyperdrive — the component binds `CLOUDFLARE_HYPERDRIVE_TOKEN` |
 | db-migrate: checksum mismatch | an applied migration's file changed. Never edit one; add a new migration |
+| db-migrate: `row-level security would lock the app out of …` | migration 030's guard: the tables in `public` are not owned by `postgres` (the role Hyperdrive connects as), and `postgres` has neither SUPERUSER nor BYPASSRLS. Nothing was enabled and the app did not deploy. Give `postgres` the tables (`ALTER TABLE … OWNER TO postgres`) or BYPASSRLS, then re-run the phase |
 | web smoke: `/api/health` 503 | the database is unreachable through the binding (`database: unreachable`) or not migrated (`schema: missing`) — the Hyperdrive and db-migrate lanes for that environment say which |
 | `build-app` fails: `Symlink apps/web/node_modules/next is invalid, it points out of the filesystem root` | the product's intent pins stack-tectonic ≥ 0.20.0 (lane-scoped install), which Next 16's Turbopack refuses. Pin 0.19.0 — `intent.yaml` says why |
 | `verify-app-structure` fails: `test -f wrangler.jsonc` | `apps/web/wrangler.jsonc` is not committed. It must be: the check runs before the build, in a fresh checkout (`pnpm run wire:fixture` renders it) |

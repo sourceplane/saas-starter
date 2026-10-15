@@ -35,5 +35,14 @@ export const manifest: MigrationManifest = {
       description:
         "app_private.secrets, and the session-signing key a fresh environment starts with (lib/auth/secret.ts); lib/db/migrations/0001_app_secrets.sql is the same SQL for drizzle-kit",
     },
+    {
+      id: "030_row_level_security",
+      context: "app",
+      path: "030_row_level_security/up.sql",
+      checksum:
+        "b661da4d0915014e5821436e09beb83e87be716d110704c230219b8ac5ac810b",
+      description:
+        "Row-level security, with no policies, on every table in public — closed to Supabase's Data API (anon, authenticated), open to the app, which owns them; refuses to run if the app's role would be locked out. lib/db/migrations/0002_row_level_security.sql is the same SQL for drizzle-kit",
+    },
   ],
 };

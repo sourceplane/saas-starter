@@ -43,5 +43,6 @@ spec:
         - "blueprint.yaml (the console card, requires [github, cloudflare, supabase]) and repo-blueprint.yaml (the build) take a new product from nothing to live on stage and prod in ONE landing, then record it (01-product, 02-docs)"
         - "the product's own push-to-main plan converges supabase → cloudflare-hyperdrive → db-migrate → web per environment, every edge enforced on main and advisory on a pull request"
         - "a fresh product deploys, signs a user up, signs in and renders the dashboard with no Stripe key and no AUTH_SECRET; pricing and checkout say Stripe is not connected"
+        - "every table in public has row-level security and no policy: Supabase's Data API (anon, authenticated) reads and writes nothing, the app, as the tables' owner, everything"
         - "Baseline CI is green: contract tests, the blueprint read by the pinned orun, the leak gate, the offline bootstrap and the product's plans, and the end-to-end tier"
       tasks: [SA-6]

@@ -103,18 +103,42 @@ prod lanes re-render it from their wiring document before the build. The
 SA1 build command also rendered on `dev`, which has no wiring document; dev
 now verifies with the committed fixture render.
 
-## SA-L — Supabase's Data API and the template's tables (OPEN)
+## SA-L — Supabase's Data API and the template's tables (RESOLVED, SA5)
 
 Supabase exposes the `public` schema over PostgREST to anyone holding the
-project's anon key. The template's tables (`users` with password hashes,
-`teams`, `invitations`, …) live in `public` without row-level security,
-because upstream assumed a private Postgres. This app never fetches or
-publishes the anon key (the supabase root no longer reads API keys), so
-nothing hands it out — but the key is public by Supabase's design, not a
-secret. Enabling RLS with no policies on those five tables would close it
-without touching the app (it connects as the tables' owner); that is a
-schema migration of its own, left for a decision rather than slipped into
-the baseline.
+project's anon key, which is public by Supabase's design. The template's
+tables (`users` with password hashes, `teams`, `invitations`, …) lived in
+`public` without row-level security, because upstream assumed a private
+Postgres — so every product built from this baseline would have served them.
+
+Migration `030_row_level_security` enables RLS, with NO policy, on every
+table in `public`. `anon` and `authenticated` read and write nothing through
+the Data API; the app is unaffected because of the role it connects as:
+
+- **Which role.** The cloudflare-hyperdrive root's origin is
+  `database_user = "postgres"`, and the supabase root's `connection_uri` is
+  `postgresql://postgres:…@db.<ref>.supabase.co:5432/postgres` — the app, and
+  db-migrate's runner, are `postgres`.
+- **Why it still reads its tables.** db-migrate creates them through the
+  Management API's query endpoint, which is expected to run as `postgres`
+  (the dashboard's SQL editor, which uses it, runs as `postgres` by
+  default) — making `postgres` their owner, and a table's owner is not
+  subject to RLS unless FORCE is set (it is not). That has NOT been observed
+  on a live project from this repository, so the migration checks before it
+  enables anything: if `postgres` neither owns every table in `public` nor
+  has SUPERUSER or BYPASSRLS, it raises and enables nothing — the deploy
+  stops at db-migrate, naming the tables, instead of locking the app out of
+  its data. The first live bootstrap settles it.
+- **The migration ledgers and the session key** live in `_migrations`,
+  drizzle-kit's `drizzle` and `app_private` — schemas the Data API does not
+  expose — and are left as they are.
+- **Held by tests.** `apps/web/lib/db/schema.ts` declares `.enableRLS()` on
+  every table, so drizzle-kit writes the statement for the next one;
+  `tests/db` runs every migration in PGlite and fails if any table in
+  `public` lacks RLS, if a policy or FORCE appears, or if a role with the
+  Data API's grants can read or write a row — and drives the guard's refusal.
+  The e2e tier does the same against a Postgres with Supabase's roles
+  (`postgres` without SUPERUSER or BYPASSRLS), after a real sign-up.
 
 ## SA-M — Unmeasured wall-clock, unapplied roots (OPEN)
 

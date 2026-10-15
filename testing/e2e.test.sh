@@ -11,14 +11,18 @@
 #      placed, render the wrangler fixture (which must change nothing: the
 #      render is committed), typecheck, lint, test, build. That landing WAITS
 #      on its checks;
-#   2. a Postgres of its own on a random port — the database a Supabase
-#      project would be — and a stand-in for the ONE Supabase Management API
-#      endpoint the migration runner calls (testing/lib/fake-supabase-api.py);
+#   2. a Postgres of its own on a random port, with Supabase's roles — the
+#      database a Supabase project would be: `postgres` a login role WITHOUT
+#      superuser or BYPASSRLS, `anon` and `authenticated` with the Data API's
+#      default grants (testing/lib/local-postgres.sh) — and a stand-in for the
+#      ONE Supabase Management API endpoint the migration runner calls
+#      (testing/lib/fake-supabase-api.py), connected as `postgres`;
 #   3. the db-migrate lane's own steps, rendered by `orun plan` for a push to
 #      main and run IN THE TREE THE RUNNER STAGES for the job: install, build
 #      @saas/db, apply — every migration, the session key the database
-#      generates for itself included — then apply again, which must apply
-#      nothing, and the pull-request profile's offline plan;
+#      generates for itself and row-level security on every table in `public`
+#      included — then apply again, which must apply nothing, and the
+#      pull-request profile's offline plan;
 #   4. the web lane's own steps for stage, rendered for a pull request (the
 #      verify profile carries deploy-dry-run; the deploy profile does not) and
 #      run in its staged job tree: install, `verify-app-structure` (the
@@ -33,7 +37,12 @@
 #      pricing page says Stripe is not connected (not a 500), the Stripe routes
 #      degrade, `/api/health` and `/api/user` (answered only by the Worker)
 #      answer, and a visitor signs up, lands on the dashboard, signs in again
-#      — the session signed with the key the database generated.
+#      — the session signed with the key the database generated;
+#   6. the Data API's view of the same database: every table in `public` has
+#      row-level security, and `anon` and `authenticated` — granted everything
+#      Supabase grants them — read none of the rows the sign-up wrote and can
+#      write none, while the app, as the tables' owner and nothing more, just
+#      did both.
 #
 # What it cannot do is the platform's half: create the repository, mint the
 # brokered tokens, create a real Supabase project and Hyperdrive config
@@ -219,7 +228,7 @@ export SUPABASE_ACCESS_TOKEN=e2e-token SUPABASE_PROJECT_REF="$ref" SUPABASE_DB_P
        SUPABASE_DB_URL="$pgurl" SUPABASE_API_URL="http://127.0.0.1:$api_port"
 run_job "$scratch/steps-migrate" "$mwork" stage "$scratch/migrate"
 applied() { python3 -c "import json,sys;t=open(sys.argv[1]).read();print(' '.join(json.loads(t[t.index('{'):t.rindex('}')+1])['applied']))" "$1"; }
-want="000_control_baseline 010_saas_starter_schema 020_app_secrets"
+want="000_control_baseline 010_saas_starter_schema 020_app_secrets 030_row_level_security"
 [ "$(applied "$scratch/migrate-Migration Apply.log")" = "$want" ] \
   || { echo "FAIL: the first apply applied '$(applied "$scratch/migrate-Migration Apply.log")', not '$want'" >&2; exit 1; }
 echo "   applied $want"
@@ -438,5 +447,51 @@ print(f"   /, /pricing (Stripe not connected), /sign-in, /sign-up, a 404, /dashb
       f"/api/health, /api/user, the Stripe routes degraded; a sign-up, the dashboard, the activity "
       f"log, a sign-in — as {name!r}, signed with the database's own key")
 PY
+
+# ── 6. what Supabase's Data API would see ──────────────────────────────────
+echo "── the Data API's roles (anon, authenticated) against the same database"
+psql "$pgurl" -X -q -v ON_ERROR_STOP=1 -At > "$scratch/rls.out" 2> "$scratch/rls.err" <<'SQL' \
+  || { echo "FAIL: the row-level security checks" >&2; cat "$scratch/rls.err" >&2; exit 1; }
+SELECT 'app role: superuser=' || rolsuper || ' bypassrls=' || rolbypassrls FROM pg_roles WHERE rolname = current_user;
+SELECT 'public tables without RLS: ' || count(*) FILTER (WHERE NOT c.relrowsecurity) || ' of ' || count(*)
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p');
+SELECT 'not owned by the app: ' || count(*) FILTER (WHERE pg_get_userbyid(c.relowner) <> current_user)
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p');
+SELECT 'app sees users: ' || count(*) FROM users;
+SET ROLE anon;
+SELECT 'anon sees users: ' || count(*) FROM users;
+SELECT 'anon sees teams: ' || count(*) FROM teams;
+RESET ROLE;
+SET ROLE authenticated;
+SELECT 'authenticated sees users: ' || count(*) FROM users;
+RESET ROLE;
+SQL
+cat "$scratch/rls.out" | sed 's/^/   /'
+grep -qx "app role: superuser=false bypassrls=false" "$scratch/rls.out" \
+  && grep -qE "^public tables without RLS: 0 of [1-9][0-9]*$" "$scratch/rls.out" \
+  && grep -qx "not owned by the app: 0" "$scratch/rls.out" \
+  || { echo "FAIL: the app's role, the tables' owner or their row-level security is not what Supabase's would be" >&2; exit 1; }
+app_users="$(sed -n 's/^app sees users: //p' "$scratch/rls.out")"
+[ "${app_users:-0}" -ge 1 ] || { echo "FAIL: the sign-up wrote no user the app can see" >&2; exit 1; }
+for line in "anon sees users: 0" "anon sees teams: 0" "authenticated sees users: 0"; do
+  grep -qx "$line" "$scratch/rls.out" || { echo "FAIL: expected '$line'" >&2; exit 1; }
+done
+# A write through the Data API's role is refused by row-level security, and
+# app_private (the session key) is not theirs to read at all.
+for role in anon authenticated; do
+  if psql "$pgurl" -X -q -At -c "SET ROLE $role; INSERT INTO users (email, password_hash) VALUES ('$role@example.invalid', 'x')" > "$scratch/rls-write.log" 2>&1; then
+    echo "FAIL: $role wrote a user through row-level security" >&2; exit 1
+  fi
+  grep -q "row-level security" "$scratch/rls-write.log" \
+    || { echo "FAIL: $role's write was refused for another reason:" >&2; cat "$scratch/rls-write.log" >&2; exit 1; }
+  if psql "$pgurl" -X -q -At -c "SET ROLE $role; SELECT value FROM app_private.secrets" > "$scratch/rls-secret.log" 2>&1; then
+    echo "FAIL: $role read app_private.secrets" >&2; exit 1
+  fi
+  grep -q "permission denied" "$scratch/rls-secret.log" \
+    || { echo "FAIL: $role's read of app_private was refused for another reason" >&2; cat "$scratch/rls-secret.log" >&2; exit 1; }
+done
+echo "   anon and authenticated, granted what Supabase grants them, read $app_users user(s) as 0 and write none; app_private is closed to them"
 
 echo "e2e.test.sh: ok"

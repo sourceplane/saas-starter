@@ -13,6 +13,7 @@ const drizzleDir = path.resolve(__dirname, "../../../apps/web/lib/db/migrations"
 const DRIZZLE_TWIN: Record<string, string> = {
   "010_saas_starter_schema": "0000_soft_the_anarchist.sql",
   "020_app_secrets": "0001_app_secrets.sql",
+  "030_row_level_security": "0002_row_level_security.sql",
 };
 
 function statements(sql: string): string[] {

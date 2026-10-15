@@ -76,6 +76,12 @@ Caveats that matter:
   Hyperdrive id): edit the template and run `pnpm run wire:fixture`. The
   deploy lanes render the real one in their own job tree; never commit a
   real id.
+- Every table in `public` has row-level security and no policy. Supabase's
+  Data API serves `public` to the anon key, so this is what keeps the users
+  table (password hashes included) out of it; the app is unaffected because
+  it connects as `postgres`, the tables' owner. Give a new table
+  `.enableRLS()`; never `FORCE` it, and never add a policy for `anon` without
+  meaning to publish that table.
 - A migration is immutable once applied: its checksum is in
   `packages/db/src/manifest.ts` and in the database's ledger. Change the
   schema with a NEW migration (in `packages/db/src/migrations`, and its
@@ -145,7 +151,7 @@ orun integrations list --org <ws> --json && orun cloud check --org <ws>
 | task | how |
 |---|---|
 | deploy a change | merge to `main`; watch the run; failed lanes → `gh run rerun --failed` |
-| change the schema | add a migration (both copies, see above), `pnpm --filter @saas/db run manifest:fix` for its checksum, merge — db-migrate applies it before the app deploys |
+| change the schema | add the table to `apps/web/lib/db/schema.ts` with `.enableRLS()`, `pnpm --filter @app/web db:generate`, copy the SQL into a new `packages/db/src/migrations/<nnn>_<name>/up.sql` and the manifest (`pnpm --filter @saas/db run manifest:fix` for its checksum), merge — db-migrate applies it before the app deploys. `pnpm test` fails on a table in `public` without row-level security |
 | redeploy without a change | edit the last line of the component's `component.yaml` (`# orun: redeploy <reason> <stamp>`) and merge — it is a deploy trigger, nothing reads it |
 | connect Stripe | above |
 | rotate the session key | `wrangler secret put AUTH_SECRET --name saas-starter-web-<env>` (32+ random bytes); every session ends |
