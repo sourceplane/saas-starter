@@ -1,11 +1,18 @@
 # Local Worker secrets for `wrangler dev` / `opennextjs-cloudflare preview`.
-# Copy to .dev.vars (git-ignored). In stage/prod these are Worker secrets, set
-# once per environment with `wrangler secret put <NAME> --name saas-starter-web-<env>`
-# (README → Deploying); the deploy lane does not set them. The database is not
-# here: the Worker reaches it through the HYPERDRIVE binding (wrangler.jsonc).
-AUTH_SECRET=change-me-openssl-rand-base64-32
-STRIPE_SECRET_KEY=sk_test_***
-STRIPE_WEBHOOK_SECRET=whsec_***
+# Copy to .dev.vars (git-ignored). Every key is optional: the database is not
+# here (the Worker reaches it through the HYPERDRIVE binding, wrangler.jsonc).
+#
+# The session key. Unset, it is the one the database generated for itself
+# (migration 020_app_secrets, lib/auth/secret.ts).
+# AUTH_SECRET=change-me-openssl-rand-base64-32
+#
+# Stripe. Unset, the pricing page says checkout is not connected and the
+# webhook answers 503. In stage/prod these are Worker secrets the owner sets
+# once per environment: `wrangler secret put <NAME> --name saas-starter-web-<env>`
+# (README, "Connect Stripe").
+# STRIPE_SECRET_KEY=sk_test_***
+# STRIPE_WEBHOOK_SECRET=whsec_***
+#
 # Where Stripe sends the browser back to; wrangler.jsonc's var is the deployed
 # value, this one overrides it locally.
 BASE_URL=http://localhost:8787

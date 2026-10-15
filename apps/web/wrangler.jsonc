@@ -1,0 +1,53 @@
+// wrangler.template.jsonc is the source and wrangler.jsonc is rendered from
+// it by tooling/wire: edit the template, never the render. Two renders:
+//
+//   - committed: the render from wiring.fixture.json (`pnpm run wire:fixture`),
+//     a placeholder Hyperdrive id. `wrangler dev`, `next dev`, the dev verify
+//     lane and the composition's structure check (which runs BEFORE the build,
+//     in a fresh checkout) all read it, so it has to exist without a build.
+//     Edit this file and re-render; tests/web fails when the two disagree.
+//   - deployed: the stage and prod lanes re-render it inside their own job
+//     tree, before the build, from the wiring document the
+//     `cloudflare-hyperdrive` Terraform root lease-publishes
+//     (WIRING_CLOUDFLARE_HYPERDRIVE_<ENV>, apps/web/component.yaml).
+//
+// The workers-assets composition deploys one environment per job with no
+// wrangler `--env`, so a placeholder token names the environment a render is
+// for.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "saas-starter-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": { "enabled": true },
+  // The Supabase project's Postgres, fronted by Hyperdrive. lib/db/drizzle.ts
+  // reads env.HYPERDRIVE.connectionString per request (upstream read
+  // POSTGRES_URL). Locally — `wrangler dev`, `next dev` — the binding points at
+  // the Supabase CLI's default database (`supabase start`), which is also the
+  // Docker Postgres upstream's `pnpm db:setup` creates.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000000000000000000000000001",
+      "localConnectionString": "postgres://postgres:postgres@localhost:54322/postgres"
+    }
+  ],
+  // The app's own origin: Stripe Checkout and the customer portal send the
+  // browser back to it (lib/payments/stripe.ts). The template reads it on the
+  // server only, so a var is enough — the same value upstream set in Vercel's
+  // dashboard. The workers.dev subdomain is the one component.yaml and
+  // intent.yaml carry; serving a custom domain, change it here.
+  "vars": {
+    "BASE_URL": "https://saas-starter-web-stage.your-workers-subdomain.workers.dev"
+  }
+  // Secrets are never vars. STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are
+  // Worker secrets the owner adds per environment (README, "Connect Stripe");
+  // until then checkout says it is not connected. AUTH_SECRET is optional: the
+  // session key defaults to the one the database generated
+  // (lib/auth/secret.ts). Locally, all three go in .dev.vars.
+}

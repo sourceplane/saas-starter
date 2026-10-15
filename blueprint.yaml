@@ -1,0 +1,153 @@
+# The saas-starter card: what the console's Blueprints page renders and the
+# platform's bootstrap door consumes.
+#
+# THIS FILE IS NOT THE BUILD. `spec.bootstrap.blueprint` names the build
+# document — `repo-blueprint.yaml`, whose phases a runner places. This card is
+# what an operator reads and fills in before pressing Build, and
+# `testing/manifest.test.sh` compares every list below to the document that
+# actually does the thing, not to a copy of itself.
+#
+# The division of labour with the registry is strict: the registry (orun-cloud
+# `infra/baselines-registry/baselines.yaml`) owns identity and commerce — id,
+# visibility, tier, the pinned tag. This file owns the build contract. Neither
+# restates the other, which is why there is no `tag` here: this file is
+# fetched AT the tag the registry pins.
+apiVersion: orun.io/v1
+kind: Blueprint
+metadata:
+  name: saas-starter
+  displayName: SaaS Starter — Next.js SaaS on Cloudflare Workers and Supabase
+  description: >
+    Vercel's Next.js SaaS Starter as a product of its own: email and password
+    auth, teams with roles and invitations, an activity log and Stripe
+    subscriptions, built by OpenNext into one Cloudflare Worker, with its
+    Postgres a Supabase project reached through Hyperdrive. Terraform creates
+    both per environment, db-migrate applies the schema, and CI deploys it all
+    to stage and prod on merge, in that order. Stripe connects after the build.
+    Live in about twenty minutes.
+  tags: [saas, stripe, supabase, cloudflare, nextjs]
+spec:
+  source:
+    repo: sourceplane/saas-starter
+    # No `tag`. The registry pins it; this file is fetched at it.
+
+  # ── What the operator reads first ────────────────────────────────────────
+  overview:
+    lede: >
+      A SaaS app with sign-up, teams and subscriptions — Cloudflare at the
+      edge, Supabase for Postgres, Terraform holding the data plane, and
+      Stripe whenever you are ready to charge.
+    architecture:
+      - layer: Edge
+        items: [web]
+      - layer: Data
+        items: [Supabase Postgres, Hyperdrive, db-migrate]
+      - layer: Delivery
+        items: [Terraform, GitHub Actions, OpenNext]
+    outcome:
+      - Live on stage and prod, sign-up working
+      - A Supabase project per environment, migrated on merge
+      - Checkout turns on when you add a Stripe key
+
+  requires:
+    # GitHub arrives as the App installation plus the repo link; Cloudflare
+    # and Supabase are the two provider connections the build mints from.
+    # Stripe is not here: no platform brokers it, the product deploys and
+    # serves without it, and its owner adds the key afterwards (the product's
+    # README, "Connect Stripe").
+    integrations: [github, cloudflare, supabase]
+    apiKeyRole: admin          # secret writes need the admin floor
+
+  # Every input is collected by the console: keys are lowercase (the
+  # platform's reader refuses anything else), every one carries the `pattern`
+  # its value is checked against before Continue, and a value the console
+  # already holds says so with `from`. repo-blueprint.yaml declares the same
+  # names; `repoPrivate`, `orunWorkspace` and `epicSlug` are build inputs with
+  # defaults (or filled from the build's workspace) and are not asked.
+  inputs:
+    - key: reponame
+      label: Repo name
+      pattern: "^[a-z][a-z0-9-]{1,38}$"
+      # The operator picked the repository; its name IS this value.
+      from: repo.name
+    - key: productname
+      label: Product name
+      pattern: "^[A-Za-z0-9][A-Za-z0-9 .,'&-]{1,48}$"
+      help: The name people see — beside the logo and in every page title.
+      example: Acme Cloud
+    - key: productdomain
+      label: Product domain
+      pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+      help: The domain the product will answer on. It does not need to exist — the app goes live on workers.dev first.
+      example: acme.dev
+    - key: githuborg
+      label: GitHub organisation
+      pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
+      help: The GitHub org or user the product's repository is created under.
+      # DERIVED FROM THE CHOSEN REPOSITORY: its owner IS this value. Declared
+      # because repo-blueprint.yaml requires it — a build may declare more
+      # inputs than this card, but not require one nobody supplies.
+      from: repo.owner
+    - key: subdomain
+      label: workers.dev subdomain
+      pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
+      help: The workers.dev subdomain of the Cloudflare account the app deploys into.
+      example: acme
+
+  # ── PREVIEW ONLY. repo-blueprint.yaml's `orun.integrations/reconcile@v1`
+  # hooks mint these, brokered, during 01-product. ─────────────────────────
+  # Transcribed from those hooks' own `keys:` and `template:` values, so
+  # testing/manifest.test.sh compares this list to the document that mints
+  # them. The console renders them read-only: no credential is ever typed,
+  # shown or stored. Keys that already exist are kept. Five keys, five
+  # scopes, on purpose — the deploy token deliberately cannot touch
+  # Hyperdrive. Stripe's keys are not here: no connection mints them.
+  secrets:
+    - key: CLOUDFLARE_API_TOKEN
+      provider: cloudflare
+      template: workers-deploy
+      why: Deploys the app's Worker and its static assets
+    - key: CLOUDFLARE_HYPERDRIVE_TOKEN
+      provider: cloudflare
+      template: hyperdrive-edit
+      why: Hyperdrive — the deploy token deliberately cannot touch it
+    - key: CLOUDFLARE_ACCOUNT_ID
+      provider: cloudflare
+      template: account-id
+      why: Connection fact, not a secret
+      fact: true
+    - key: SUPABASE_ACCESS_TOKEN
+      provider: supabase
+      template: management-access
+      why: Project create and migrations
+    - key: SUPABASE_ORG_ID
+      provider: supabase
+      template: org-id
+      why: Connection fact, not a secret
+      fact: true
+
+  # ── PREVIEW ONLY. repo-blueprint.yaml's run-level `hooks.preInstantiate`
+  # opens these — the epic, every milestone in this order, every task — before
+  # the first phase places. Idempotent by identity, so a re-run finds what it
+  # made before.
+  programme:
+    epicSlug: saas-baselining          # = repo-blueprint.yaml's `epicSlug` default
+    epicName: "SaaS baselining — {productname}"
+    milestones:
+      - name: 01-product
+      - name: 02-docs
+
+  bootstrap:
+    # THE BUILD DOCUMENT. There is no umbrella workflow and no agent brief:
+    # every phase is declared in it and orun runs it.
+    blueprint: repo-blueprint.yaml
+    # Summed from the phases' expectedMinutes. An estimate until a bootstrap
+    # measures it: a Supabase project takes five to seven minutes to come up,
+    # and the app's deploy waits on it, on Hyperdrive and on the migrations.
+    expectedMinutes: 20
+    tokenChannel: ORUN_TOKEN_FILE   # how a runner hands over its refreshed token
+  verify:
+    urls:
+      - "https://{reponame}-web-{env}.{subdomain}.workers.dev"
+      - "https://{reponame}-web-{env}.{subdomain}.workers.dev/api/health"
+    envs: [stage, prod]

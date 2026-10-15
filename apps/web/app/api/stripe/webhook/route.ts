@@ -1,10 +1,23 @@
 import Stripe from 'stripe';
-import { handleSubscriptionChange, stripe } from '@/lib/payments/stripe';
+import {
+  getStripe,
+  handleSubscriptionChange,
+  stripeConfigured
+} from '@/lib/payments/stripe';
 import { NextRequest, NextResponse } from 'next/server';
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
 export async function POST(request: NextRequest) {
+  // Until the owner connects Stripe (both keys, README "Connect Stripe") there
+  // is nothing to verify a delivery against: say so with a 503, which Stripe
+  // retries, rather than a 500 or a 400 that reads as a forged event.
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripeConfigured() || !webhookSecret) {
+    return NextResponse.json(
+      { error: 'Stripe is not connected.' },
+      { status: 503 }
+    );
+  }
+
   const payload = await request.text();
   const signature = request.headers.get('stripe-signature') as string;
 
@@ -12,7 +25,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Workers: verify the signature over SubtleCrypto (async), not Node's crypto.
-    event = await stripe.webhooks.constructEventAsync(
+    event = await getStripe().webhooks.constructEventAsync(
       payload,
       signature,
       webhookSecret,

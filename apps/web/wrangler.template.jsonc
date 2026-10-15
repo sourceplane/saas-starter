@@ -1,9 +1,19 @@
-// Rendered to wrangler.jsonc (git-ignored) by tooling/wire: the verify lane
-// renders from wiring.fixture.json, the deploy lane from the wiring document
-// the `cloudflare-hyperdrive` Terraform root lease-publishes
-// (WIRING_CLOUDFLARE_HYPERDRIVE_<ENV>). The workers-assets composition deploys
-// one environment per job with no wrangler `--env`, so `__ENV__` names the
-// environment this config is rendered for.
+// wrangler.template.jsonc is the source and wrangler.jsonc is rendered from
+// it by tooling/wire: edit the template, never the render. Two renders:
+//
+//   - committed: the render from wiring.fixture.json (`pnpm run wire:fixture`),
+//     a placeholder Hyperdrive id. `wrangler dev`, `next dev`, the dev verify
+//     lane and the composition's structure check (which runs BEFORE the build,
+//     in a fresh checkout) all read it, so it has to exist without a build.
+//     Edit this file and re-render; tests/web fails when the two disagree.
+//   - deployed: the stage and prod lanes re-render it inside their own job
+//     tree, before the build, from the wiring document the
+//     `cloudflare-hyperdrive` Terraform root lease-publishes
+//     (WIRING_CLOUDFLARE_HYPERDRIVE_<ENV>, apps/web/component.yaml).
+//
+// The workers-assets composition deploys one environment per job with no
+// wrangler `--env`, so a placeholder token names the environment a render is
+// for.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "saas-starter-web",
@@ -30,13 +40,14 @@
   // The app's own origin: Stripe Checkout and the customer portal send the
   // browser back to it (lib/payments/stripe.ts). The template reads it on the
   // server only, so a var is enough — the same value upstream set in Vercel's
-  // dashboard. No wiring document carries the workers.dev subdomain: edit the
-  // placeholder here once (the same one as component.yaml and intent.yaml), or
-  // set a custom domain.
+  // dashboard. The workers.dev subdomain is the one component.yaml and
+  // intent.yaml carry; serving a custom domain, change it here.
   "vars": {
     "BASE_URL": "https://saas-starter-web-__ENV__.your-workers-subdomain.workers.dev"
   }
-  // AUTH_SECRET, STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are Worker
-  // secrets, never vars: .dev.vars locally, `wrangler secret put` per
-  // environment (README → Deploying).
+  // Secrets are never vars. STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are
+  // Worker secrets the owner adds per environment (README, "Connect Stripe");
+  // until then checkout says it is not connected. AUTH_SECRET is optional: the
+  // session key defaults to the one the database generated
+  // (lib/auth/secret.ts). Locally, all three go in .dev.vars.
 }

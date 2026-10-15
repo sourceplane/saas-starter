@@ -164,35 +164,3 @@ output "connection_uri" {
   value       = "postgresql://postgres:${random_password.db_password.result}@db.${supabase_project.this.id}.supabase.co:5432/postgres"
   sensitive   = true
 }
-
-# --- API keys ---
-#
-# The starter talks to Supabase from the browser and from the Worker with the
-# project URL and the publishable (anon) key; Row Level Security is what
-# protects the data, the key is public by design. Both leave this module
-# through the wiring document the app's deploy reads back.
-
-data "supabase_apikeys" "this" {
-  project_ref = supabase_project.this.id
-}
-
-output "anon_key" {
-  description = "The publishable (anon) API key"
-  value       = data.supabase_apikeys.this.anon_key
-  sensitive   = true
-}
-
-output "service_role_key" {
-  description = "The service-role key (server only; never shipped to a browser)"
-  value       = data.supabase_apikeys.this.service_role_key
-  sensitive   = true
-}
-
-output "wiring" {
-  description = "Wiring document for the app's deploy-time configuration (pushed to orun secrets)"
-  value = jsonencode({
-    supabase_url      = "https://${supabase_project.this.id}.supabase.co"
-    supabase_anon_key = data.supabase_apikeys.this.anon_key
-  })
-  sensitive = true
-}

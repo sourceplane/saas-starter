@@ -1,6 +1,10 @@
 import { checkoutAction } from '@/lib/payments/actions';
 import { Check } from 'lucide-react';
-import { getStripePrices, getStripeProducts } from '@/lib/payments/stripe';
+import {
+  getStripePrices,
+  getStripeProducts,
+  stripeConfigured
+} from '@/lib/payments/stripe';
 import { SubmitButton } from './submit-button';
 
 // Upstream: `export const revalidate = 3600` (prices fresh for one hour max,
@@ -10,10 +14,13 @@ import { SubmitButton } from './submit-button';
 export const dynamic = 'force-dynamic';
 
 export default async function PricingPage() {
-  const [prices, products] = await Promise.all([
-    getStripePrices(),
-    getStripeProducts(),
-  ]);
+  // Without a Stripe key the page still renders — the template's default
+  // plans, with checkout off and a notice saying why — instead of failing on
+  // the Stripe call (lib/payments/stripe.ts).
+  const connected = stripeConfigured();
+  const [prices, products] = connected
+    ? await Promise.all([getStripePrices(), getStripeProducts()])
+    : [[], []];
 
   const basePlan = products.find((product) => product.name === 'Base');
   const plusPlan = products.find((product) => product.name === 'Plus');
@@ -23,6 +30,7 @@ export default async function PricingPage() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      {!connected && <StripeNotConnected />}
       <div className="grid md:grid-cols-2 gap-8 max-w-xl mx-auto">
         <PricingCard
           name={basePlan?.name || 'Base'}
@@ -35,6 +43,7 @@ export default async function PricingPage() {
             'Email Support',
           ]}
           priceId={basePrice?.id}
+          checkoutEnabled={connected}
         />
         <PricingCard
           name={plusPlan?.name || 'Plus'}
@@ -47,9 +56,27 @@ export default async function PricingPage() {
             '24/7 Support + Slack Access',
           ]}
           priceId={plusPrice?.id}
+          checkoutEnabled={connected}
         />
       </div>
     </main>
+  );
+}
+
+function StripeNotConnected() {
+  return (
+    <div
+      role="status"
+      data-stripe="not-connected"
+      className="max-w-xl mx-auto mb-10 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900"
+    >
+      <p className="font-medium">Connect Stripe to enable checkout.</p>
+      <p className="mt-1">
+        The plans below are the template&apos;s defaults. This deployment has
+        no Stripe key yet; once its owner adds STRIPE_SECRET_KEY and
+        STRIPE_WEBHOOK_SECRET, checkout and the customer portal turn on.
+      </p>
+    </div>
   );
 }
 
@@ -60,6 +87,7 @@ function PricingCard({
   trialDays,
   features,
   priceId,
+  checkoutEnabled,
 }: {
   name: string;
   price: number;
@@ -67,6 +95,7 @@ function PricingCard({
   trialDays: number;
   features: string[];
   priceId?: string;
+  checkoutEnabled: boolean;
 }) {
   return (
     <div className="pt-6">
@@ -90,7 +119,7 @@ function PricingCard({
       </ul>
       <form action={checkoutAction}>
         <input type="hidden" name="priceId" value={priceId} />
-        <SubmitButton />
+        <SubmitButton disabled={!checkoutEnabled} />
       </form>
     </div>
   );

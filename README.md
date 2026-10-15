@@ -5,158 +5,120 @@ Postgres through Drizzle, Stripe Checkout, Customer Portal and webhooks,
 email/password auth with a JWT cookie, a session-refreshing proxy, teams with
 roles, invitations and an activity log — running on **Cloudflare Workers +
 Static Assets** through [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare),
-with its Postgres being a **Supabase** project's database reached through
+with its Postgres a **Supabase** project's database reached through
 **Cloudflare Hyperdrive**, both provisioned by Terraform through
-[Orun](https://github.com/sourceplane/orun), and its schema applied by Orun's
-`db-migrate` component — the way the
-[Lumen baseline](https://github.com/sourceplane/lumen) does it.
+[Orun](https://github.com/sourceplane/orun) and the schema applied by Orun's
+`db-migrate` — the way the [Lumen baseline](https://github.com/sourceplane/lumen)
+does it — and packaged as an **Orun baseline**: one command takes a new
+product from nothing to live on stage and prod, in its own repository, under
+its own name, in ONE landing.
 
-The template's code is the code. What the port changes in it is the one thing
-the Workers runtime forces — the database client is built per request over
-the Hyperdrive binding (`lib/db/drizzle.ts`'s `getDb()`) instead of once at
-module load — plus Next 16's `proxy.ts` name for the middleware and the
-Stripe SDK's fetch transport. What it adds is the Workers build, the monorepo
-wrapper, tests for the session, the proxy and the webhook, the migrations
-package with Lumen's runner, three infrastructure components (the Supabase
-project, the Hyperdrive config, the migration step) and the deploy contract
-that threads the Hyperdrive id into the Worker per environment. See
-[`specs/epics/saas-starter`](specs/epics/saas-starter/README.md) for the
-design, the milestones and the as-built status, including every departure.
+The template's code is the code. What the port changes is what the Workers
+runtime and a fresh, unattended deployment force: the database client is
+built per request over the Hyperdrive binding (`lib/db/drizzle.ts`), the
+Stripe client exists only once a key does (so the app deploys and signs users
+up with no Stripe account, and the pricing page says checkout is not
+connected), and the session key defaults to one the database generates for
+itself (so no secret has to be set by hand). What the baseline adds is
+everything needed to make a copy of it somebody else's — built the way
+[cirrus-baseline](https://github.com/sourceplane/cirrus-baseline) builds a
+product, in one landing. See [`specs/epics/saas-starter`](specs/epics/saas-starter/README.md)
+for the design, the milestones and the as-built status, including every
+departure.
 
-## What is here
+## Instantiating a product
+
+```bash
+git clone --depth 1 --branch <baseline-tag> https://github.com/sourceplane/saas-starter
+cd saas-starter
+orun new --blueprint repo-blueprint.yaml --out ~/products/acme-saas --run-hooks --resume \
+  --set reponame=acme-saas --set productname="Acme Cloud" --set productdomain=acme.dev \
+  --set githuborg=acme-inc --set subdomain=<workers-dev-subdomain>
+```
+
+Or, once the platform's registry lists it, from the Orun console (Baselines →
+`saas-starter` → Build). Two phases: **`01-product`** creates the repository,
+mints the five brokered credentials (Cloudflare and Supabase) and lands the
+whole product as one pull request, whose convergence on `main` provisions and
+deploys it per environment in a fixed order —
+
+```
+supabase ──▶ cloudflare-hyperdrive ──▶ db-migrate ──▶ web
+```
+
+— each edge `mode: enforced` on a push to main and advisory on a pull
+request; then **`02-docs`** records the live deployment from probed facts.
+**[BOOTSTRAP.md](BOOTSTRAP.md)** is the operator guide;
+[docs/phases/](docs/phases/README.md) has a page per phase.
+
+The new repository receives the **product only** — the app, the Terraform
+roots, the migrations, the tests, its CI, its tooling, a README of its own
+and its operating contract — renamed throughout to the product's name,
+repository, Worker, Supabase project and Hyperdrive config. None of this
+repository's machinery ships. **Stripe is the owner's to connect afterwards**
+(the product's README, "Connect Stripe"): no platform brokers it, so the card
+asks for no Stripe key.
+
+| What makes it a baseline | Where |
+|---|---|
+| The console card (inputs, secrets, programme) | `blueprint.yaml` |
+| The build document (modules, phases, hooks) | `repo-blueprint.yaml` |
+| This tree's identity, the product's README and the bootstrap's task contracts | `.baseline/` |
+| The rename engine (product-name seam: `apps/web/lib/site.ts`) | `tooling/rebrand/rebrand.mjs` |
+| The bootstrap's helpers (deferrals, redeploy marker, work-tree strip) | `tooling/bootstrap/` |
+| The deployment-record renderer | `hooks/render-deployment-docs.sh` |
+| The product's context pack | `ai/context/` |
+| The baseline's tests: contract, leak, offline bootstrap and plans, end to end | `testing/`, `.github/workflows/baseline.yml` |
+| Cutting a `baseline-vN` tag | `.github/workflows/tag.yml` |
+
+## What is here (the product)
 
 | Surface | Where |
 |---|---|
-| Marketing page, pricing, sign-in / sign-up, the dashboard, the Stripe routes | `apps/web/app` |
+| The product's name | `apps/web/lib/site.ts` |
+| Marketing page, pricing, sign-in / sign-up, the dashboard, the Stripe routes, `/api/health` | `apps/web/app` |
 | Drizzle schema, queries, the per-request client, the seed | `apps/web/lib/db` (`drizzle.ts` is `getDb()`) |
-| Session (jose + bcrypt), action validation, the proxy | `apps/web/lib/auth`, `apps/web/proxy.ts` |
+| Session (jose + bcrypt) and its key, action validation, the proxy | `apps/web/lib/auth`, `apps/web/proxy.ts` |
 | Stripe client, checkout, portal, subscription sync | `apps/web/lib/payments` |
-| Workers build and deploy contract | `apps/web/next.config.ts`, `open-next.config.ts`, `wrangler.template.jsonc`, `component.yaml` |
-| The schema as migrations + Lumen's runner | `packages/db` (`@saas/db`) |
-| The migration step, the Supabase project, the Hyperdrive config | `infra/db-migrate`, `infra/terraform/supabase`, `infra/terraform/cloudflare-hyperdrive` |
+| Workers build and deploy contract | `apps/web/next.config.ts`, `open-next.config.ts`, `wrangler.template.jsonc` → `wrangler.jsonc` (committed), `component.yaml` |
+| The schema as migrations, and Lumen's runner | `packages/db` (`@saas/db`) |
+| The Supabase project, the Hyperdrive config, the migration step | `infra/terraform/supabase`, `infra/terraform/cloudflare-hyperdrive`, `infra/db-migrate` |
 | Tests | `tests/web`, `tests/db` (vitest) |
 
 ## Getting started
 
 ```bash
 pnpm install
-pnpm run wire:fixture   # render apps/web/wrangler.jsonc from the offline fixture
+pnpm run wire:fixture   # re-render apps/web/wrangler.jsonc from its template (committed; this changes nothing)
 pnpm typecheck
 pnpm lint
 pnpm test
 pnpm build              # next build + opennextjs-cloudflare build → apps/web/.open-next
 ```
 
-The build needs no database and no Stripe account: nothing pre-renders
-against either (the build script supplies a placeholder `STRIPE_SECRET_KEY`
-so the module-level Stripe client can be constructed; it is never called).
-
-## Running it locally
-
-You need a Postgres on `localhost:54322` — the Supabase CLI's default
-(`supabase start`), or the Docker container upstream's setup script offers —
-or any Postgres whose URL you put in `POSTGRES_URL`.
-
-1. **Environment.** Copy `apps/web/.env.example` to `apps/web/.env` and fill
-   it in, or let upstream's wizard do it (it also creates the Docker
-   Postgres and a Stripe CLI webhook secret):
-
-   ```bash
-   pnpm --filter @app/web db:setup
-   ```
-
-   `.env` is read by `next dev`, the seed and drizzle-kit. The Worker never
-   reads it: its database is the `HYPERDRIVE` binding and its secrets are
-   `.dev.vars` (below).
-
-2. **Schema.** Locally, drizzle-kit applies the template's migrations as
-   upstream (`pnpm db:generate` after a schema change, `pnpm db:studio` to
-   browse):
-
-   ```bash
-   pnpm --filter @app/web db:migrate
-   ```
-
-   The same SQL lives in `packages/db/src/migrations` and is what CI applies
-   to the real databases (below).
-
-3. **Seed.** Creates the test user and team and the two Stripe products in
-   the account `STRIPE_SECRET_KEY` names (test mode):
-
-   ```bash
-   pnpm --filter @app/web db:seed      # user test@test.com / admin123
-   ```
-
-4. **Run.** Either Next's dev server, which gets the Worker's bindings
-   through `getCloudflareContext()` (the `HYPERDRIVE` binding points at
-   `localhost:54322` via `wrangler.jsonc`'s `localConnectionString`, so
-   `pnpm run wire:fixture` first):
-
-   ```bash
-   pnpm --filter @app/web dev          # http://localhost:3000
-   ```
-
-   or the built Worker under `wrangler dev`, which reads
-   `apps/web/.dev.vars` (copy `.dev.vars.example`: `AUTH_SECRET`,
-   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BASE_URL`):
-
-   ```bash
-   pnpm build
-   pnpm --filter @app/web preview      # http://localhost:8787
-   ```
-
-5. **Stripe.** As upstream: `stripe login`, then forward webhooks to the
-   server you are running —
-
-   ```bash
-   stripe listen --forward-to localhost:3000/api/stripe/webhook
-   ```
-
-   — and test checkout with card `4242 4242 4242 4242`, any future date,
-   any CVC.
+The build needs no database and no Stripe account. Running it locally — a
+Postgres on `localhost:54322` (`supabase start`), `pnpm db:migrate`,
+`pnpm db:seed`, `next dev` or `wrangler dev` — is in the product's README
+(`.baseline/product/README.md`), which is what a product built from here
+carries.
 
 ## How it maps to Vercel
 
 | Vercel | Here |
 |---|---|
 | Next.js hosting, `middleware.ts` on the edge | One Cloudflare Worker (`.open-next/worker.js`) + Static Assets; the middleware is `proxy.ts` (Next 16's name) and runs in the Worker |
-| Postgres from the marketplace, `postgres(POSTGRES_URL)` at module scope | The Supabase project's Postgres through Hyperdrive: `getDb()` builds a `postgres` client + Drizzle per request from `env.HYPERDRIVE.connectionString` (the runtime refuses a socket shared across requests); `POSTGRES_URL` is for local scripts |
-| `drizzle-kit migrate` | `infra/db-migrate` applies `packages/db/src/migrations` (the template's drizzle-kit SQL, verbatim) through Supabase's Management API per environment, before the Worker deploys |
-| Project env vars in the dashboard | `BASE_URL`: a wrangler var per environment. `AUTH_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`: Worker secrets (`wrangler secret put`, below) |
-| The Stripe SDK over Node's `http` | `Stripe.createFetchHttpClient()`; the webhook verifies with `constructEventAsync` over SubtleCrypto |
-| A database created by hand | `infra/terraform/supabase` (one project per environment) + `infra/terraform/cloudflare-hyperdrive` (one config per environment over that database), ids and credentials as orun secrets |
-| Deploy on push | Orun deploys `saas-starter-web-{stage,prod}` on merge to `main`, after the Hyperdrive root and the migration step (`apps/web/component.yaml`) |
+| Postgres from the marketplace, `postgres(POSTGRES_URL)` at module scope | The Supabase project's Postgres through Hyperdrive: `getDb()` builds a `postgres` client + Drizzle per request from `env.HYPERDRIVE.connectionString`; `POSTGRES_URL` is for local scripts |
+| `drizzle-kit migrate` | `infra/db-migrate` applies `packages/db/src/migrations` through Supabase's Management API per environment, after the project and the Hyperdrive config exist, before the Worker deploys |
+| `AUTH_SECRET` from the setup script | Optional: unset, the session key is the one the environment's database generated (`app_private.secrets`) |
+| Stripe keys in the project's env vars | Worker secrets the owner adds when ready; until then checkout says it is not connected |
+| A database created by hand | `infra/terraform/supabase` (one project per environment) + `infra/terraform/cloudflare-hyperdrive` (one config per environment), ids and credentials as orun secrets |
+| "Deploy with Vercel" (clone the template) | `orun new --blueprint repo-blueprint.yaml` — a new repository, branded, provisioned, deployed |
 
-## Deploying
+## CI
 
-`.github/workflows/checks.yml` runs install, wire, typecheck, lint, test and
-build on every push and pull request. `ci.yml` is the Orun pipeline: set
-`execution.state.workspace` in `intent.yaml` to this product's workspace
-(`orun cloud link`), connect Cloudflare **and Supabase** to that workspace,
-and set the `ORUN_CI` repository variable to `true`. A merge to `main` then,
-per environment: applies the Supabase root, applies the Hyperdrive root over
-its database, builds `@saas/db` and applies the migrations, renders
-`wrangler.jsonc` with that environment's Hyperdrive id, builds the app and
-deploys the Worker to `stage`, then `prod`.
-
-Three things are the product's to set once per environment, because no root
-can mint them:
-
-```bash
-# Worker secrets (the deploy lane does not set these)
-wrangler secret put AUTH_SECRET           --name saas-starter-web-stage   # openssl rand -base64 32
-wrangler secret put STRIPE_SECRET_KEY     --name saas-starter-web-stage
-wrangler secret put STRIPE_WEBHOOK_SECRET --name saas-starter-web-stage   # from the webhook you register below
-```
-
-- **The Worker's origin.** `BASE_URL` is where Stripe sends the browser back
-  to. `apps/web/wrangler.template.jsonc`, `apps/web/component.yaml` and
-  `intent.yaml` carry the same `your-workers-subdomain` placeholder: replace
-  it with the account's workers.dev subdomain (or a custom domain) once.
-- **The Stripe webhook.** In the Stripe dashboard, add an endpoint at
-  `https://saas-starter-web-prod.<subdomain>.workers.dev/api/stripe/webhook`
-  for `customer.subscription.updated` and `customer.subscription.deleted`;
-  its signing secret is `STRIPE_WEBHOOK_SECRET` above.
-- **The Stripe products.** Run the seed against the live account once (or
-  create Base and Plus by hand); until then the pricing page shows its
-  defaults with nothing to buy.
+| Workflow | What it runs | Ships to a product |
+|---|---|---|
+| `checks.yml` | install, wire fixture, typecheck, lint, test, build — every PR (not pushes: on main, `ci.yml` must be the only run a commit has, because the bootstrap's convergence watch takes the newest one) | yes |
+| `ci.yml` | the Orun pipeline: `orun plan --changed`, then one job per lane; applies, migrates and deploys stage → prod on merge. It plans nothing while `intent.yaml` names the placeholder workspace `ws_CHANGE_ME`, as this repository does | yes |
+| `baseline.yml` | the baseline's own tiers: contract tests; the blueprint read by the pinned orun, the leak gate, the offline bootstrap and the product's own plans; the product built, migrated into a local Postgres, dry-deployed, served and signed up on | no |
+| `tag.yml` | cuts a `baseline-vN` tag (manual) | no |

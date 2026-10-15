@@ -67,11 +67,69 @@ the scripts, works.
 ## SA-H — `pnpm build` with no Stripe and no database (RESOLVED)
 
 Nothing pre-renders against either: the root layout reads the session
-cookie, so every page is dynamic at build, and the Stripe client is only
-constructed, never called. `Checks` builds without secrets.
+cookie, so every page is dynamic at build. Since SA5 the Stripe client is
+not even constructed without a key, so the build needs no placeholder.
+`Checks` builds without secrets.
 
 ## SA-I — The `stripe` package's moving `LATEST` type (RESOLVED)
 
 Upstream declares `stripe ^18.1.0` with `apiVersion: '2025-04-30.basil'`;
 newer 18.x minors move the `LATEST` type and reject that literal. `stripe`
 is pinned to `18.1.0`, what upstream's own lockfile resolves to.
+
+## SA-J — A fresh product has no Stripe key and no AUTH_SECRET (RESOLVED, SA5)
+
+A bootstrapped product is deployed by a convergence nobody attends, and
+Stripe is a third party no platform brokers. Before SA5 the pricing page
+answered 500 without a key and every sign-up failed without `AUTH_SECRET`.
+Now the Stripe client exists only once `STRIPE_SECRET_KEY` does — pricing
+renders the template's plans with checkout disabled and "Connect Stripe to
+enable checkout", the checkout and portal actions and the checkout callback
+send the visitor there, the webhook answers 503 — and the session key, when
+`AUTH_SECRET` is unset, is 64 hex characters the environment's database
+generated in migration `020_app_secrets` (`app_private.secrets`, a schema
+Supabase's Data API does not expose). Anyone who can read that table can
+already read every user's row; an owner who wants the key elsewhere sets
+`AUTH_SECRET`, which also rotates it.
+
+## SA-K — `wrangler.jsonc` must exist before the build (RESOLVED, SA5)
+
+The workers-assets composition's `verify-app-structure` step runs
+`test -f wrangler.jsonc` before `build-app`, in the job's fresh tree. SA1
+rendered the file in the build and git-ignored it, which no lane had run yet
+— every web lane would have stopped there. It is now committed as the
+fixture render (tests/web holds it equal to the template), and the stage and
+prod lanes re-render it from their wiring document before the build. The
+SA1 build command also rendered on `dev`, which has no wiring document; dev
+now verifies with the committed fixture render.
+
+## SA-L — Supabase's Data API and the template's tables (OPEN)
+
+Supabase exposes the `public` schema over PostgREST to anyone holding the
+project's anon key. The template's tables (`users` with password hashes,
+`teams`, `invitations`, …) live in `public` without row-level security,
+because upstream assumed a private Postgres. This app never fetches or
+publishes the anon key (the supabase root no longer reads API keys), so
+nothing hands it out — but the key is public by Supabase's design, not a
+secret. Enabling RLS with no policies on those five tables would close it
+without touching the app (it connects as the tables' owner); that is a
+schema migration of its own, left for a decision rather than slipped into
+the baseline.
+
+## SA-M — Unmeasured wall-clock, unapplied roots (OPEN)
+
+The card's twenty minutes is summed from the phases' estimates; no
+bootstrap has been timed. Supabase project creation dominates (five to seven
+minutes, Lumen's measurement), and the app's build waits on the migrations.
+Neither Terraform root has been applied from this repository and no
+db-migrate has run against a real project: both are validated offline, the
+migrations are applied by the product's own runner to a local Postgres in
+the e2e tier, and the order is proven on the product's own plan.
+
+## SA-N — The bootstrap floor plans `modeRules` as enforced (ACCEPTED)
+
+orun v2.58.11, the floor a bootstrap runs on, ignores per-edge `modeRules`,
+so a pull-request plan it makes holds the infra edges enforced rather than
+advisory. The product's own CI plans with its lane pin (v2.78.4), which
+reads them; the placement tier says when it cannot check them and the e2e
+tier, pinned at the lane version, does.

@@ -14,10 +14,18 @@ spec:
   owner: platform
   domain: infra
 
-  # Hyperdrive's origin is the Supabase Postgres connection that `supabase`
-  # writes to AWS Secrets Manager; it must run after that secret exists.
+  # Hyperdrive's origin is the Supabase project's Postgres, whose ref and
+  # password the `supabase` apply lease-publishes (SUPABASE_PROJECT_REF,
+  # SUPABASE_DB_PASSWORD, read below). A job resolves its secrets when it
+  # starts, so on main this waits for that apply, `mode: enforced`; a pull
+  # request applies nothing, so there it is advisory.
   dependsOn:
     - component: supabase
+      mode: enforced
+      modeRules:
+        - mode: advisory
+          when:
+            triggerRef: github-pull-request
 
   parameters:
     orgName: sourceplane

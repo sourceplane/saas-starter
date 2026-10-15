@@ -26,5 +26,14 @@ export const manifest: MigrationManifest = {
       description:
         "The template's schema (lib/db/migrations/0000_soft_the_anarchist.sql, drizzle-kit's output, verbatim): users, teams, team_members, activity_logs, invitations and their foreign keys",
     },
+    {
+      id: "020_app_secrets",
+      context: "app",
+      path: "020_app_secrets/up.sql",
+      checksum:
+        "30cce8114e0a100d08734c29baefdf639ad6b0b629679dd535255fc8b6b2e521",
+      description:
+        "app_private.secrets, and the session-signing key a fresh environment starts with (lib/auth/secret.ts); lib/db/migrations/0001_app_secrets.sql is the same SQL for drizzle-kit",
+    },
   ],
 };

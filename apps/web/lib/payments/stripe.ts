@@ -7,11 +7,31 @@ import {
   updateTeamSubscription
 } from '@/lib/db/queries';
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-04-30.basil',
-  // Workers have no Node http agent: talk to Stripe over fetch.
-  httpClient: Stripe.createFetchHttpClient()
-});
+// Stripe is the one third party this app talks to, and nothing provisions it:
+// a deployment has no STRIPE_SECRET_KEY until its owner adds one (README,
+// "Connect Stripe"). Until then the client is never built — the pricing page
+// says checkout is not connected, the checkout and portal actions send the
+// visitor there, and the webhook answers 503 — while sign-up, sign-in and the
+// dashboard work as they do with Stripe connected. Upstream built the client
+// at module load with `STRIPE_SECRET_KEY!`.
+export function stripeConfigured(): boolean {
+  return Boolean(process.env.STRIPE_SECRET_KEY);
+}
+
+let client: Stripe | undefined;
+
+export function getStripe(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error('Stripe is not connected: STRIPE_SECRET_KEY is not set');
+  }
+  client ??= new Stripe(key, {
+    apiVersion: '2025-04-30.basil',
+    // Workers have no Node http agent: talk to Stripe over fetch.
+    httpClient: Stripe.createFetchHttpClient()
+  });
+  return client;
+}
 
 export async function createCheckoutSession({
   team,
@@ -20,13 +40,17 @@ export async function createCheckoutSession({
   team: Team | null;
   priceId: string;
 }) {
+  if (!stripeConfigured()) {
+    redirect('/pricing');
+  }
+
   const user = await getUser();
 
   if (!team || !user) {
     redirect(`/sign-up?redirect=checkout&priceId=${priceId}`);
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [
       {
@@ -49,9 +73,11 @@ export async function createCheckoutSession({
 }
 
 export async function createCustomerPortalSession(team: Team) {
-  if (!team.stripeCustomerId || !team.stripeProductId) {
+  if (!stripeConfigured() || !team.stripeCustomerId || !team.stripeProductId) {
     redirect('/pricing');
   }
+
+  const stripe = getStripe();
 
   let configuration: Stripe.BillingPortal.Configuration;
   const configurations = await stripe.billingPortal.configurations.list();
@@ -149,7 +175,7 @@ export async function handleSubscriptionChange(
 }
 
 export async function getStripePrices() {
-  const prices = await stripe.prices.list({
+  const prices = await getStripe().prices.list({
     expand: ['data.product'],
     active: true,
     type: 'recurring'
@@ -167,7 +193,7 @@ export async function getStripePrices() {
 }
 
 export async function getStripeProducts() {
-  const products = await stripe.products.list({
+  const products = await getStripe().products.list({
     active: true,
     expand: ['data.default_price']
   });

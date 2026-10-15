@@ -3,18 +3,21 @@ import { getDb } from '@/lib/db/drizzle';
 import { users, teams, teamMembers } from '@/lib/db/schema';
 import { setSession } from '@/lib/auth/session';
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/payments/stripe';
+import { getStripe, stripeConfigured } from '@/lib/payments/stripe';
 import Stripe from 'stripe';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const sessionId = searchParams.get('session_id');
 
-  if (!sessionId) {
+  // No session to look up, or no Stripe to look it up in (not connected yet):
+  // the pricing page says which.
+  if (!sessionId || !stripeConfigured()) {
     return NextResponse.redirect(new URL('/pricing', request.url));
   }
 
   try {
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ['customer', 'subscription'],
     });

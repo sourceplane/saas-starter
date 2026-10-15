@@ -9,7 +9,7 @@ metadata:
 spec:
   title: "Vercel's Next.js SaaS Starter on Cloudflare Workers with Supabase Postgres through Hyperdrive"
   summary: "The Next.js SaaS Starter — Postgres through Drizzle, Stripe Checkout, Customer Portal and webhooks, email/password auth with a jose JWT in a cookie, a session-refreshing middleware, teams with roles, invitations and an activity log — runs on Cloudflare Workers + Static Assets through @opennextjs/cloudflare. Its Postgres is the Supabase project's database reached through Cloudflare Hyperdrive, both provisioned by Terraform through Orun (the Lumen baseline's roots), and its schema is applied by Orun's db-migrate component from the drizzle-kit SQL the template ships. The code stays the code: the one departure is the per-request database client the Workers runtime forces."
-  state: completed
+  state: started
   milestones:
     - name: "SA0 — the spec"
       exitCriteria:
@@ -38,3 +38,10 @@ spec:
         - "the README says how to run it locally (Supabase CLI or any Postgres, the seed, Stripe), how to test, preview and deploy it through Orun, and which Worker secrets to set"
         - "the as-built status records every departure from the upstream template"
       tasks: [SA-5]
+    - name: "SA5 — a baseline"
+      exitCriteria:
+        - "blueprint.yaml (the console card, requires [github, cloudflare, supabase]) and repo-blueprint.yaml (the build) take a new product from nothing to live on stage and prod in ONE landing, then record it (01-product, 02-docs)"
+        - "the product's own push-to-main plan converges supabase → cloudflare-hyperdrive → db-migrate → web per environment, every edge enforced on main and advisory on a pull request"
+        - "a fresh product deploys, signs a user up, signs in and renders the dashboard with no Stripe key and no AUTH_SECRET; pricing and checkout say Stripe is not connected"
+        - "Baseline CI is green: contract tests, the blueprint read by the pinned orun, the leak gate, the offline bootstrap and the product's plans, and the end-to-end tier"
+      tasks: [SA-6]
