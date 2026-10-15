@@ -10,6 +10,7 @@ the code departed from `design.md` or from the upstream template.
 | SA2 — the schema through db-migrate | ✅ Shipped (planned offline; apply gated on a linked workspace) | [#3](https://github.com/sourceplane/saas-starter/pull/3) |
 | SA3 — Supabase and Hyperdrive from Terraform | ✅ Shipped (validated; apply gated on a linked workspace) | [#4](https://github.com/sourceplane/saas-starter/pull/4) |
 | SA4 — ready to instantiate | ✅ Shipped | [#5](https://github.com/sourceplane/saas-starter/pull/5) |
+| SA5 — a baseline | 🔄 In review (SA-6) | this branch, `claude/blissful-ptolemy-c5ajf8` |
 
 ## Departures from the upstream template
 
@@ -135,3 +136,84 @@ template is kept as written rather than edited to satisfy the linter.
   product linked to an Orun workspace with Supabase and Cloudflare
   connections (`ORUN_CI` variable) and the Worker secrets set (README →
   Deploying).
+
+## SA5 — a baseline (SA-6)
+
+The repository is an Orun baseline on the Lumen conventions, built the way
+cirrus-baseline v22 builds a product: ONE landing. `blueprint.yaml` is the
+card (`requires: [github, cloudflare, supabase]`; the five brokered keys —
+`CLOUDFLARE_API_TOKEN` workers-deploy, `CLOUDFLARE_HYPERDRIVE_TOKEN`
+hyperdrive-edit, `CLOUDFLARE_ACCOUNT_ID` account-id, `SUPABASE_ACCESS_TOKEN`
+management-access, `SUPABASE_ORG_ID` org-id — as a preview; programme
+`01-product`, `02-docs`); `repo-blueprint.yaml` places every module in
+`01-product`, brands it, links the repository, reconciles the five keys and
+lands it as one pull request, then awaits the convergence, the four published
+secrets on stage and prod and `/` + `/api/health`; `02-docs` restores the
+promotion gate and dev's lanes and renders the record. The machinery is
+portfolio-starter-kit's (`baseline-v2`) — `.baseline/`, the rename engine,
+the bootstrap helpers, the deployment-record hook, `ai/context/`, `testing/`,
+`baseline.yml`, `tag.yml`, `ci.yml`'s `linked` gate — adapted to two phases.
+
+### Departures, in the product
+
+- **Stripe is optional** (`lib/payments/stripe.ts`). Upstream built the client
+  at module load from `STRIPE_SECRET_KEY!`. `getStripe()` builds it only once
+  the key exists; `stripeConfigured()` gates the pricing page (the template's
+  plans, checkout disabled, "Connect Stripe to enable checkout"), the checkout
+  and portal actions and the checkout callback (→ `/pricing`), and the webhook
+  (503 "Stripe is not connected." until both keys are set). The build no
+  longer supplies a placeholder key. The seed calls `getStripe()`.
+- **The session key defaults to the database's** (`lib/auth/secret.ts`,
+  migration `020_app_secrets` and its drizzle-kit twin `0001_app_secrets`).
+  `AUTH_SECRET` wins when set; otherwise the key is 64 hex characters the
+  database generated into `app_private.secrets`, read once per isolate.
+  `session.ts` resolves the key per use instead of encoding `AUTH_SECRET` at
+  module load.
+- **Row-level security on every table in `public`** (migration
+  `030_row_level_security`, drizzle-kit twin `0002`, `.enableRLS()` in
+  `schema.ts`), with no policy: Supabase's Data API serves `public` to the
+  anon key, and the template's tables — password hashes included — had none
+  (SA-L). The app connects as `postgres`, the tables' owner; the migration
+  refuses to run if that role would be locked out. `tests/db` (PGlite) and
+  the e2e hold it.
+- **`/api/health`** (new): 200 only when the database behind the HYPERDRIVE
+  binding answers and both `public.users` and `app_private.secrets` exist.
+  The deploy's smoke and both phases' probes read it.
+- **The product's name is one seam** (`lib/site.ts`, `SITE_NAME`): the header
+  beside the logo (upstream's literal "ACME") and the `<title>` (upstream:
+  "Next.js SaaS Starter"). The marketing page's links to the upstream
+  template stay upstream's; the rename engine protects them.
+- **`apps/web/wrangler.jsonc` is committed** — the fixture render of the
+  template — because the composition checks for it before the build. The
+  stage and prod lanes re-render it from their wiring document; dev verifies
+  with the fixture (SA-K). `tests/web` holds the two equal.
+- **The deploy order is enforced on main** (component `dependsOn` with
+  `mode: enforced` and an advisory `modeRules` entry for pull requests):
+  `cloudflare-hyperdrive` → `supabase`; `db-migrate` → `supabase`,
+  `cloudflare-hyperdrive` (new: the migrations run last before the app);
+  `web` → `cloudflare-hyperdrive`, `db-migrate`.
+- **The supabase root publishes Lumen's three outputs**
+  (`SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_URL`) and no
+  longer reads the project's API keys, which nothing here uses (the
+  `supabase_apikeys` block and `SUPABASE_URL`/`_ANON_KEY`/`_SERVICE_ROLE_KEY`/
+  `WIRING_SUPABASE` are gone). Both roots carry Lumen's
+  `.terraform.lock.hcl`.
+- **stack-tectonic 0.19.0** (was 0.18.2; not 0.20.0, whose lane-scoped install
+  Turbopack refuses), **`checks.yml` on pull requests only**, `ci.yml`'s
+  `linked` gate in place of the `ORUN_CI` variable and its lanes on v2.78.4.
+- `packages/db`'s runner reads `SUPABASE_API_URL` (default
+  `https://api.supabase.com`) so the e2e can point it at a stand-in.
+- `apps/web/README.md` describes the app as it runs here (upstream's text is
+  upstream's repository); `intent.yaml`'s docs pages are the product's
+  `ai/context/` pages.
+
+### Verified (SA5)
+
+See the pull request for the run log. In short: the repository's checks
+(`pnpm install --frozen-lockfile`, `wire:fixture`, typecheck, lint, test —
+37 tests: 27 in `tests/web`, 10 in `tests/db` — build); every
+`testing/*.test.sh`; `orun new --status` at v2.58.11, v2.78.4 and 2.79.0;
+`orun validate`; `orun work check`; `terraform fmt`, `init -backend=false`
+and `validate` on both roots. Not verified: a Terraform apply, a db-migrate
+apply against a real Supabase project, a live deploy, a live bootstrap, and
+checkout against a real Stripe account (SA-M).

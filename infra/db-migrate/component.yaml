@@ -15,11 +15,28 @@ spec:
   owner: platform
   domain: infra
 
+  # Migrations read the Supabase connection from the orun secrets the
+  # `supabase` apply lease-publishes, so on main they wait for it — and for
+  # the Hyperdrive config over that database. Nothing here needs Hyperdrive;
+  # the edge is there because a migration is the one step of a convergence a
+  # re-run cannot take back, so it runs only once everything the Worker needs
+  # besides the schema exists, immediately before the Worker deploys. The
+  # order on main is supabase → cloudflare-hyperdrive → db-migrate → web.
+  # Enforced on main, advisory on a pull request (which applies nothing).
   dependsOn:
     - component: db
-    # Migrations read the Supabase connection from the orun secrets the
-    # `supabase` component lease-publishes post-apply.
     - component: supabase
+      mode: enforced
+      modeRules:
+        - mode: advisory
+          when:
+            triggerRef: github-pull-request
+    - component: cloudflare-hyperdrive
+      mode: enforced
+      modeRules:
+        - mode: advisory
+          when:
+            triggerRef: github-pull-request
 
   path: packages/db/src/migrations
 

@@ -2,9 +2,15 @@ import { compare, hash } from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { NewUser } from '@/lib/db/schema';
+import { authSecret } from './secret';
 
-const key = new TextEncoder().encode(process.env.AUTH_SECRET);
 const SALT_ROUNDS = 10;
+
+// Upstream encoded AUTH_SECRET once at module load. The key may now come from
+// the database (lib/auth/secret.ts), so it is resolved when it is used.
+async function signingKey() {
+  return new TextEncoder().encode(await authSecret());
+}
 
 export async function hashPassword(password: string) {
   return hash(password, SALT_ROUNDS);
@@ -27,11 +33,11 @@ export async function signToken(payload: SessionData) {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('1 day from now')
-    .sign(key);
+    .sign(await signingKey());
 }
 
 export async function verifyToken(input: string) {
-  const { payload } = await jwtVerify(input, key, {
+  const { payload } = await jwtVerify(input, await signingKey(), {
     algorithms: ['HS256'],
   });
   return payload as SessionData;

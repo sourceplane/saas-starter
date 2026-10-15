@@ -25,7 +25,7 @@ Next 15.6 canary with `experimental.ppr`.
 | `middleware.ts` on the edge | `proxy.ts` — Next 16's name for the same file; OpenNext bundles it as Node.js middleware inside the same Worker. The logic (cookie check, jose refresh, redirect to `/sign-in`) is unchanged |
 | Postgres from the marketplace, reached by `postgres(process.env.POSTGRES_URL)` at module scope | The Supabase project's Postgres reached through Cloudflare Hyperdrive: the Worker's `HYPERDRIVE` binding hands out a connection string, and `lib/db/drizzle.ts` builds a `postgres` client + Drizzle **per request** in `getDb()`. Without a Cloudflare context (`next dev` before the bindings are up, the seed, drizzle-kit, tests) it falls back to `POSTGRES_URL`, as upstream |
 | `drizzle-kit migrate` against `POSTGRES_URL` | Orun's `db-migrate` component applies `packages/db/src/migrations` — the template's drizzle-kit SQL, verbatim, listed in a checksummed manifest — through Supabase's Management API, per environment, before the Worker deploys. drizzle-kit (`pnpm db:generate`, `db:migrate`, `db:studio`) stays for local development |
-| Project env vars set in the Vercel dashboard | `BASE_URL` is a wrangler var rendered per environment (the Worker's own origin; read on the server only). `AUTH_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` are Worker secrets: `.dev.vars` locally, `wrangler secret put` once per environment. `POSTGRES_URL` is local-only (`.env`) |
+| Project env vars set in the Vercel dashboard | `BASE_URL` is a wrangler var rendered per environment (the Worker's own origin; read on the server only). `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` are Worker secrets the owner adds when ready (`.dev.vars` locally); `AUTH_SECRET` likewise, optional — the database generates the session key otherwise. `POSTGRES_URL` is local-only (`.env`) |
 | The Stripe SDK over Node's `http` | `Stripe.createFetchHttpClient()`; the webhook verifies its signature with `constructEventAsync` over `Stripe.createSubtleCryptoProvider()` |
 | A database created by hand | `infra/terraform/supabase` (Lumen's root): one project per environment, credentials published as orun secrets. `infra/terraform/cloudflare-hyperdrive`: one Hyperdrive config per environment pointed at that database, its id published as a wiring document |
 | Deploy on push | Orun: `apps/web/component.yaml` (`cloudflare-workers-assets-turbo`) deploys `saas-starter-web-{stage,prod}` on merge to `main`, after `cloudflare-hyperdrive` and `db-migrate` |
@@ -63,8 +63,7 @@ round trip and send plain statements.
 
 ```
 infra/terraform/supabase ──apply──► orun secrets (project/<env> rung)
-   SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD, SUPABASE_DB_URL, SUPABASE_URL,
-   SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, WIRING_SUPABASE
+   SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD, SUPABASE_DB_URL
         │
         ├──► infra/terraform/cloudflare-hyperdrive (TF_VAR_supabase_project_ref, TF_VAR_supabase_db_password)
         │       ──apply──► WIRING_CLOUDFLARE_HYPERDRIVE = {hyperdrive_id, hyperdrive_name}
@@ -73,10 +72,12 @@ infra/terraform/supabase ──apply──► orun secrets (project/<env> rung)
         │                               → tooling/wire/live.mjs → wrangler.jsonc  hyperdrive[0].id
         │
         └──► infra/db-migrate (SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF, SUPABASE_DB_PASSWORD, SUPABASE_DB_URL)
-                ──apply──► the schema
+                ──apply──► the schema, and app_private.secrets' auth_secret (the session key)
 
-Worker secrets (not from any root — Stripe is the product's account):
-   AUTH_SECRET, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET   wrangler secret put … --name saas-starter-web-<env>
+Worker secrets (not from any root — Stripe is the product's account; all optional):
+   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET   wrangler secret put … --name saas-starter-web-<env>
+                                              (unset: checkout says Stripe is not connected)
+   AUTH_SECRET                                (unset: the session key is the database's own)
 Worker var (wrangler.jsonc, per environment):
    BASE_URL = https://saas-starter-web-<env>.<subdomain>.workers.dev
 ```
@@ -85,14 +86,23 @@ Worker var (wrangler.jsonc, per environment):
 token and a `localConnectionString` for `wrangler dev` / `next dev`
 (`postgres://postgres:postgres@localhost:54322/postgres` — the Supabase CLI's
 default, and the Docker Postgres upstream's `pnpm db:setup` creates). The
-verify lane (and `pnpm run wire:fixture`) renders it from
-`wiring.fixture.json`; the deploy lane renders it from the live document for
-`$ORUN_ENVIRONMENT`. The rendered `wrangler.jsonc` is git-ignored.
+`pnpm run wire:fixture` renders it from `wiring.fixture.json` into the
+COMMITTED `wrangler.jsonc` — the composition checks that file exists before
+the build, in a fresh checkout — which `wrangler dev`, `next dev` and the dev
+verify lane use; the stage and prod lanes re-render it from the live document
+for `$ORUN_ENVIRONMENT` before they build (SA5; it was git-ignored before).
 
 `BASE_URL` is a var, not a secret, and not wired: no root knows the account's
-workers.dev subdomain. The template carries the same placeholder as
-`component.yaml` and `intent.yaml` (`your-workers-subdomain`), edited once per
-product, or replaced by a custom domain.
+workers.dev subdomain. The template carries the same subdomain as
+`component.yaml` and `intent.yaml` (`your-workers-subdomain` here; a
+bootstrap writes the product's own), or a custom domain.
+
+On a push to main the four components converge in one run, per environment,
+in the order the arrows above imply — `supabase → cloudflare-hyperdrive →
+db-migrate → web` — because each component that reads another's output
+declares `dependsOn` on it with `mode: enforced` (advisory on a pull request).
+A job resolves its secrets when it starts, so what an apply published is
+there for the next.
 
 ## 5. The repository
 

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "STRIPE_SECRET_KEY=\"${STRIPE_SECRET_KEY:-sk_test_placeholder_never_called_at_build}\" next build && opennextjs-cloudflare build --skipBuild --skipWranglerConfigCheck && opennextjs-cloudflare populateCache local",
+    "build": "next build && opennextjs-cloudflare build --skipBuild --skipWranglerConfigCheck && opennextjs-cloudflare populateCache local",
     "start": "next start",
     "preview": "opennextjs-cloudflare preview",
     "typecheck": "tsc --noEmit",

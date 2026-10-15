@@ -65,6 +65,34 @@ with PRs and departures, epic `completed`.
 - the README quick start works from a fresh clone
 - the status file lists every PR and departure
 
+## SA5 — a baseline
+
+The repository becomes an Orun baseline on the Lumen conventions, built the
+way cirrus-baseline v22 builds a product — in ONE landing:
+
+- `blueprint.yaml` (the card: `requires [github, cloudflare, supabase]`, the
+  five brokered secrets as a preview, the programme `01-product`, `02-docs`)
+  and `repo-blueprint.yaml` (every module placed by `01-product` and landed as
+  one pull request; `02-docs` hook-only);
+- the components' edges `mode: enforced` on a push to main, advisory on a
+  pull request, so one convergence runs supabase → cloudflare-hyperdrive →
+  db-migrate → web per environment;
+- the app deployable with no Stripe key and no hand-set secret: the Stripe
+  client is lazy and checkout says it is not connected; the session key
+  defaults to one the database generates (migration `020_app_secrets`);
+- `wrangler.jsonc` committed as the fixture render, so the composition's
+  pre-build structure check passes in a fresh checkout;
+- `.baseline/`, the rename engine, the bootstrap helpers, the deployment
+  record, `ai/context/`, `testing/` and the `baseline.yml` / `tag.yml` lanes.
+
+**Done when**
+- orun reads the build document at the bootstrap floor (v2.58.11), the lane
+  pin (v2.78.4) and 2.79.0, and the card agrees with it
+- the product's own `orun plan --trigger github-push-main` shows the order,
+  enforced; a pull request's plan holds the same edges advisory
+- the e2e tier migrates a local Postgres with the product's own runner, builds
+  in the job tree orun stages, and signs a user up with no Stripe key
+
 ## Sequencing note
 
 SA1's component already names `cloudflare-hyperdrive` and `db-migrate` and

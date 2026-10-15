@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-// app/api/stripe/webhook/route.ts: the signature is checked first (on
-// Workers through constructEventAsync over SubtleCrypto), a bad one is a 400
-// before anything touches the database; subscription events reach
-// handleSubscriptionChange. The Stripe client is mocked — no network.
+// app/api/stripe/webhook/route.ts: until Stripe is connected it answers 503;
+// then the signature is checked first (on Workers through constructEventAsync
+// over SubtleCrypto), a bad one is a 400 before anything touches the database;
+// subscription events reach handleSubscriptionChange. The Stripe client is
+// mocked — no network.
 const constructEventAsync = vi.fn();
 const handleSubscriptionChange = vi.fn();
+const stripeConfigured = vi.fn();
 
 vi.mock('@/lib/payments/stripe', () => ({
-  stripe: { webhooks: { constructEventAsync } },
+  getStripe: () => ({ webhooks: { constructEventAsync } }),
+  stripeConfigured: () => stripeConfigured(),
   handleSubscriptionChange
 }));
 
@@ -26,9 +29,28 @@ describe('POST /api/stripe/webhook', () => {
     vi.resetModules();
     constructEventAsync.mockReset();
     handleSubscriptionChange.mockReset();
+    stripeConfigured.mockReset().mockReturnValue(true);
     process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  it('answers 503, verifying nothing, while Stripe is not connected', async () => {
+    stripeConfigured.mockReturnValue(false);
+    const { POST } = await import('@/app/api/stripe/webhook/route');
+    const res = await POST(post('{"id":"evt_0"}', 't=1,v1=ok'));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'Stripe is not connected.' });
+    expect(constructEventAsync).not.toHaveBeenCalled();
+    expect(handleSubscriptionChange).not.toHaveBeenCalled();
+  });
+
+  it('answers 503 when the key is set and the webhook secret is not', async () => {
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    const { POST } = await import('@/app/api/stripe/webhook/route');
+    const res = await POST(post('{"id":"evt_0"}', 't=1,v1=ok'));
+    expect(res.status).toBe(503);
+    expect(constructEventAsync).not.toHaveBeenCalled();
   });
 
   it('answers 400 when the signature does not verify', async () => {

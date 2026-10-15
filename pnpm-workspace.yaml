@@ -10,3 +10,10 @@ onlyBuiltDependencies:
   - esbuild
   - workerd
   - sharp
+
+# tests/db runs the migrations in PGlite (Postgres compiled to WASM), and
+# drizzle-orm lists PGlite as an optional peer. One version for both, pinned:
+# the app never imports it, and an optional peer must not float to whatever
+# was published yesterday.
+overrides:
+  "@electric-sql/pglite": "0.5.8"

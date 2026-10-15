@@ -1,5 +1,8 @@
 apiVersion: orun.io/v1
 kind: TaskContract
+metadata:
+  name: SA-3
+  title: "The schema through db-migrate"
 spec:
   goal: The template's schema is a manifest-listed migration in packages/db, applied per environment by the db-migrate component, with its checksums and offline plan under test
   affects:

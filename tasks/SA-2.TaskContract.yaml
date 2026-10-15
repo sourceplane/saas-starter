@@ -1,5 +1,8 @@
 apiVersion: orun.io/v1
 kind: TaskContract
+metadata:
+  name: SA-2
+  title: "The app on Workers"
 spec:
   goal: The upstream Next.js SaaS Starter runs on Cloudflare Workers + Static Assets with a per-request Drizzle client over the Hyperdrive binding, a per-environment rendered wrangler config and green checks
   affects:

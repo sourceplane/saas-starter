@@ -1,0 +1,36 @@
+apiVersion: orun.io/v1
+kind: TaskContract
+metadata:
+  name: SA-6
+  title: "A baseline"
+spec:
+  goal: The repository is an Orun baseline on the Lumen conventions — a card and a build document that take a new SaaS product from nothing to live on stage and prod in one landing (Supabase, then Hyperdrive, then the migrations, then the app), branded as its own, deployable with no Stripe key, with gates that prove it offline
+  affects:
+    - blueprint.yaml
+    - repo-blueprint.yaml
+    - BOOTSTRAP.md
+    - README.md
+    - .baseline/**
+    - tooling/rebrand/**
+    - tooling/bootstrap/**
+    - hooks/**
+    - testing/**
+    - docs/phases/**
+    - ai/context/**
+    - .github/workflows/**
+    - .gitignore
+    - intent.yaml
+    - apps/web/**
+    - packages/db/**
+    - infra/**
+    - tests/web/**
+    - tests/db/**
+    - specs/**
+    - tasks/**
+  doneWhen:
+    - orun (the bootstrap floor, the lane pin and 2.79.0) reads repo-blueprint.yaml, and the card agrees with it
+    - the product's own push-to-main plan orders supabase → cloudflare-hyperdrive → db-migrate → web, enforced, and a pull request's plan holds the same edges advisory
+    - a product built offline installs, migrates a local Postgres with its own runner, builds in the job tree orun stages, serves, and signs a user up with no Stripe key and no AUTH_SECRET
+    - the as-built status records the departures and what is not yet proven live
+  gates:
+    - checks
