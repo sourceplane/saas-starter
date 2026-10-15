@@ -9,7 +9,7 @@ metadata:
 spec:
   title: "Vercel's Next.js SaaS Starter on Cloudflare Workers with Supabase Postgres through Hyperdrive"
   summary: "The Next.js SaaS Starter — Postgres through Drizzle, Stripe Checkout, Customer Portal and webhooks, email/password auth with a jose JWT in a cookie, a session-refreshing middleware, teams with roles, invitations and an activity log — runs on Cloudflare Workers + Static Assets through @opennextjs/cloudflare. Its Postgres is the Supabase project's database reached through Cloudflare Hyperdrive, both provisioned by Terraform through Orun (the Lumen baseline's roots), and its schema is applied by Orun's db-migrate component from the drizzle-kit SQL the template ships. The code stays the code: the one departure is the per-request database client the Workers runtime forces."
-  state: draft
+  state: completed
   milestones:
     - name: "SA0 — the spec"
       exitCriteria:

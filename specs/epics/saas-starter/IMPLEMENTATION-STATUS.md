@@ -129,7 +129,7 @@ template is kept as written rather than edited to satisfy the linter.
   `getUser()` logs `connection attempt failed` and `/api/user` answers 500:
   the query went through `env.HYPERDRIVE` to `localhost:54322`, where
   nothing was listening — the binding path, exercised.
-- CI: `Checks` green on #2, #3, #4 and #5.
+- CI: `Checks` green on #2, #3 and #4 (#5 is documentation).
 - Not verified: an apply of either Terraform root, a `db-migrate` apply, a
   live deploy and a checkout against a real Stripe account — all need the
   product linked to an Orun workspace with Supabase and Cloudflare

@@ -8,7 +8,7 @@ The upstream code stays the code: the Drizzle schema and queries, the server act
 
 | Field | Value |
 |-------|-------|
-| Status | Draft |
+| Status | ✅ Shipped — SA0–SA4 landed (#1–#5); the Supabase and Hyperdrive applies, the db-migrate apply and a live deploy are gated on a linked workspace |
 | Cluster | **SA** (SA0–SA4) |
 | Owner(s) | `apps/web` (the app) · `packages/db` (the migrations and their runner) · `tests/web`, `tests/db` · `infra/terraform/supabase`, `infra/terraform/cloudflare-hyperdrive`, `infra/db-migrate` |
 | Builds on | `lumen` conventions — the `supabase` and `cloudflare-hyperdrive` Terraform roots, `@saas/db` + `db-migrate`, the per-request `postgres` client; `cirrus-baseline` conventions for the repository shape |
@@ -16,7 +16,7 @@ The upstream code stays the code: the Drizzle schema and queries, the server act
 | Changes | Adds the Workers build, the monorepo wrapper, tests, the migrations package, the three infra components and the deploy contract; in the template's code: `lib/db/drizzle.ts` (per-request client), `middleware.ts` → `proxy.ts`, the Stripe client's fetch transport and the webhook's async signature check |
 | Decisions locked | (1) OpenNext on Workers + Static Assets. (2) Drizzle over a Postgres socket through Hyperdrive, not PostgREST and not D1. (3) A `postgres` client per request — never a module-level pool. (4) `wrangler.jsonc` rendered per environment from the Hyperdrive wiring document; never committed. (5) drizzle-kit stays for local development; the runner applies in CI. (6) `AUTH_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` are Worker secrets set once per environment; `BASE_URL` is a wrangler var. |
 | Gate | SA1 is the first user-visible rung. SA2 and SA3 need a workspace with Supabase and Cloudflare connections to apply; they are verified by `plan` and `terraform validate`. |
-| Shipped as | — |
+| Shipped as | `main` after [#5](https://github.com/sourceplane/saas-starter/pull/5); verified locally under `wrangler dev` with the fixture config and a throwaway `.dev.vars` |
 
 ## Read order
 

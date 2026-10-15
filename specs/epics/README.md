@@ -7,6 +7,6 @@ folder is the adoption; the merge creates the epic in the workspace.
 
 | Epic | Cluster | Status | What it is |
 |------|---------|--------|------------|
-| [`saas-starter/`](./saas-starter/) | **SA** | Draft | Vercel's Next.js SaaS Starter, equivalent in code and function, on Cloudflare Workers with Supabase Postgres through Hyperdrive |
+| [`saas-starter/`](./saas-starter/) | **SA** | ✅ Shipped | Vercel's Next.js SaaS Starter, equivalent in code and function, on Cloudflare Workers with Supabase Postgres through Hyperdrive |
 
 As-built ≠ intent: what shipped lives in each epic's `IMPLEMENTATION-STATUS.md`.
