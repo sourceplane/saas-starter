@@ -1,0 +1,11 @@
+# Local Worker secrets for `wrangler dev` / `opennextjs-cloudflare preview`.
+# Copy to .dev.vars (git-ignored). In stage/prod these are Worker secrets, set
+# once per environment with `wrangler secret put <NAME> --name saas-starter-web-<env>`
+# (README → Deploying); the deploy lane does not set them. The database is not
+# here: the Worker reaches it through the HYPERDRIVE binding (wrangler.jsonc).
+AUTH_SECRET=change-me-openssl-rand-base64-32
+STRIPE_SECRET_KEY=sk_test_***
+STRIPE_WEBHOOK_SECRET=whsec_***
+# Where Stripe sends the browser back to; wrangler.jsonc's var is the deployed
+# value, this one overrides it locally.
+BASE_URL=http://localhost:8787

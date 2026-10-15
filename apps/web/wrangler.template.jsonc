@@ -1,0 +1,42 @@
+// Rendered to wrangler.jsonc (git-ignored) by tooling/wire: the verify lane
+// renders from wiring.fixture.json, the deploy lane from the wiring document
+// the `cloudflare-hyperdrive` Terraform root lease-publishes
+// (WIRING_CLOUDFLARE_HYPERDRIVE_<ENV>). The workers-assets composition deploys
+// one environment per job with no wrangler `--env`, so `__ENV__` names the
+// environment this config is rendered for.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "saas-starter-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": { "enabled": true },
+  // The Supabase project's Postgres, fronted by Hyperdrive. lib/db/drizzle.ts
+  // reads env.HYPERDRIVE.connectionString per request (upstream read
+  // POSTGRES_URL). Locally — `wrangler dev`, `next dev` — the binding points at
+  // the Supabase CLI's default database (`supabase start`), which is also the
+  // Docker Postgres upstream's `pnpm db:setup` creates.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "@@wiring(cloudflare-hyperdrive/__ENV__:hyperdrive_id)@@",
+      "localConnectionString": "postgres://postgres:postgres@localhost:54322/postgres"
+    }
+  ],
+  // The app's own origin: Stripe Checkout and the customer portal send the
+  // browser back to it (lib/payments/stripe.ts). The template reads it on the
+  // server only, so a var is enough — the same value upstream set in Vercel's
+  // dashboard. No wiring document carries the workers.dev subdomain: edit the
+  // placeholder here once (the same one as component.yaml and intent.yaml), or
+  // set a custom domain.
+  "vars": {
+    "BASE_URL": "https://saas-starter-web-__ENV__.your-workers-subdomain.workers.dev"
+  }
+  // AUTH_SECRET, STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are Worker
+  // secrets, never vars: .dev.vars locally, `wrangler secret put` per
+  // environment (README → Deploying).
+}

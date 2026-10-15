@@ -11,6 +11,7 @@ coverage/
 .env*.local
 .dev.vars
 .dev.vars.*
+!.dev.vars.example
 *.log
 plan.json
 next-env.d.ts
