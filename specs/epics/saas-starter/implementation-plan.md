@@ -109,12 +109,19 @@ itself changing.
   `open-risks.md` beside the two pages a product ships with — this
   repository's own, so no module places them.
 - **Status that agrees with the tags.** SA5 is shipped and tagged.
+- **The subdomain from the Cloudflare connection (SA-8).** The card declares
+  `subdomain` as `from: connection.cloudflare.workersSubdomain`, as
+  cirrus-baseline does since baseline-v23, so the console asks for nothing the
+  connection already knows; `testing/manifest.test.sh` requires the source's
+  provider in `spec.requires.integrations`.
 
 **Done when**
 - nothing outside this milestone's own record names kiox (`git grep -i
   kiox`), and the leak gate and the offline bootstrap pass without the two
   modules
 - the docs check is green in Baseline CI
+- the card renders no subdomain field, and the manifest gate fails a
+  `connection.` source whose provider the card does not require
 - this file, the status file and `epic.yaml` agree
 
 ## Sequencing note

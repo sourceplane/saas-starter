@@ -55,7 +55,11 @@ inputs:
     default: "your-workers-subdomain"
     description: >-
       The workers.dev subdomain of the Cloudflare account the app deploys
-      into — its URLs, the BASE_URL Stripe returns to, the probes.
+      into — its URLs, the BASE_URL Stripe returns to, the probes. A console
+      or `--from bst_…` build gets it from the workspace's Cloudflare
+      connection (blueprint.yaml declares
+      `from: connection.cloudflare.workersSubdomain`); pass it with --set
+      only for a hand-run build.
   repoPrivate:
     type: boolean
     default: true

@@ -24,8 +24,8 @@ and serves without it.
 
 | | |
 |---|---|
-| Latest tag | `baseline-v1` (SA5, [#6](https://github.com/sourceplane/saas-starter/pull/6)) |
-| On `main` since | SA6 — the cirrus standard (no kiox, generated component docs, this context pack) |
+| Latest tag | `baseline-v2` (SA6, [#7](https://github.com/sourceplane/saas-starter/pull/7) — the cirrus standard: no kiox, generated component docs, this context pack, and the workers.dev subdomain read from the Cloudflare connection instead of asked) |
+| Before it | `baseline-v1` (SA5, [#6](https://github.com/sourceplane/saas-starter/pull/6) — the baseline) |
 | Proven live | No. Everything short of the platform is proven offline in Baseline CI: the e2e tier migrates a local Postgres with the product's own runner, builds in orun's staged job tree, and signs a user up and in with no Stripe key and no `AUTH_SECRET`. No bootstrap from a tag has run against a workspace: neither Terraform root has been applied, db-migrate has not run against a real project, nothing has deployed, and the card's twenty minutes is unmeasured (SA-M) |
 
 ## Where to read
@@ -40,7 +40,6 @@ and serves without it.
 
 ## Next
 
-1. Bootstrap one product from a tag against a workspace with Cloudflare and
-   Supabase connected, and record its timings (closes SA-M; settles SA-L's
-   table-owner check on a real project).
-2. Cut the next `baseline-vN` with `tag.yml` so the registry can pin SA6.
+1. Bootstrap one product from `baseline-v2` against a workspace with
+   Cloudflare and Supabase connected, and record its timings (closes SA-M;
+   settles SA-L's table-owner check on a real project).

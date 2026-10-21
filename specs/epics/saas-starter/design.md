@@ -95,7 +95,8 @@ for `$ORUN_ENVIRONMENT` before they build (SA5; it was git-ignored before).
 `BASE_URL` is a var, not a secret, and not wired: no root knows the account's
 workers.dev subdomain. The template carries the same subdomain as
 `component.yaml` and `intent.yaml` (`your-workers-subdomain` here; a
-bootstrap writes the product's own), or a custom domain.
+bootstrap writes the product's own, which a console build reads from the
+workspace's Cloudflare connection — SA-8), or a custom domain.
 
 On a push to main the four components converge in one run, per environment,
 in the order the arrows above imply — `supabase → cloudflare-hyperdrive →
