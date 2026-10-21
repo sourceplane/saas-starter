@@ -65,7 +65,7 @@ with PRs and departures, epic `completed`.
 - the README quick start works from a fresh clone
 - the status file lists every PR and departure
 
-## SA5 — a baseline
+## SA5 — a baseline (SA-6) ✅
 
 The repository becomes an Orun baseline on the Lumen conventions, built the
 way cirrus-baseline v22 builds a product — in ONE landing:
@@ -92,6 +92,30 @@ way cirrus-baseline v22 builds a product — in ONE landing:
   enforced; a pull request's plan holds the same edges advisory
 - the e2e tier migrates a local Postgres with the product's own runner, builds
   in the job tree orun stages, and signs a user up with no Stripe key
+
+## SA6 — the cirrus standard (SA-7) ✅
+
+Bring the baseline to cirrus-baseline's standard, with nothing about the app
+itself changing.
+
+- **No kiox.** `kiox.yaml`/`kiox.lock` pinned an orun (v2.15.0) that nothing
+  ran: every workflow installs orun itself through `orun-action` with its own
+  `version:`. The files, their two modules and the rebrand's skip entry go.
+- **Component docs.** `tooling/catalog/gen-component-docs.py` writes each of
+  the seven components' `docs/overview.md`, `docs/architecture.md` and
+  `docs/runbook.md` from what the component declares, as cirrus-baseline's
+  do; the pages ship with the component. Baseline CI runs it with `--check`.
+- **The context pack.** `ai/context/current.md`, `decisions.md` and
+  `open-risks.md` beside the two pages a product ships with — this
+  repository's own, so no module places them.
+- **Status that agrees with the tags.** SA5 is shipped and tagged.
+
+**Done when**
+- nothing outside this milestone's own record names kiox (`git grep -i
+  kiox`), and the leak gate and the offline bootstrap pass without the two
+  modules
+- the docs check is green in Baseline CI
+- this file, the status file and `epic.yaml` agree
 
 ## Sequencing note
 

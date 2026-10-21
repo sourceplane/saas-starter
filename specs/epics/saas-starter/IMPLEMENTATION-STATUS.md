@@ -10,7 +10,8 @@ the code departed from `design.md` or from the upstream template.
 | SA2 — the schema through db-migrate | ✅ Shipped (planned offline; apply gated on a linked workspace) | [#3](https://github.com/sourceplane/saas-starter/pull/3) |
 | SA3 — Supabase and Hyperdrive from Terraform | ✅ Shipped (validated; apply gated on a linked workspace) | [#4](https://github.com/sourceplane/saas-starter/pull/4) |
 | SA4 — ready to instantiate | ✅ Shipped | [#5](https://github.com/sourceplane/saas-starter/pull/5) |
-| SA5 — a baseline | 🔄 In review (SA-6) | this branch, `claude/blissful-ptolemy-c5ajf8` |
+| SA5 — a baseline | ✅ Shipped | [#6](https://github.com/sourceplane/saas-starter/pull/6) (SA-6), tagged `baseline-v1` |
+| SA6 — the cirrus standard | ✅ Shipped | SA-7 — on `main` after `baseline-v1`, not yet tagged |
 
 ## Departures from the upstream template
 
@@ -217,3 +218,43 @@ See the pull request for the run log. In short: the repository's checks
 and `validate` on both roots. Not verified: a Terraform apply, a db-migrate
 apply against a real Supabase project, a live deploy, a live bootstrap, and
 checkout against a real Stripe account (SA-M).
+
+## The cirrus standard (SA6)
+
+Nothing about the app changed. What changed is the baseline around it:
+
+| What | Before | After | Why |
+|---|---|---|---|
+| orun pin | `kiox.yaml` (v2.15.0) + `kiox.lock`, shipped to every product | gone; orun is pinned where it runs, the `orun-action` `version:` in each workflow | nothing ran the kiox pin, and it disagreed with the lanes (v2.78.4) |
+| `root-kiox`, `root-kiox-lock` modules | in `01-product` | removed (`testing/phases.test.sh` and the rebrand's skip list follow) | a product is placed with 159 files: 140 − 2 kiox + 21 docs pages |
+| component docs | none | `docs/overview.md`, `architecture.md`, `runbook.md` beside each of the seven `component.yaml` | cirrus-baseline documents every component; the workspace Docs library renders `docs/` beside each manifest |
+| how the docs stay true | — | `tooling/catalog/gen-component-docs.py` derives them from the manifest, the Worker config, Terraform, migrations and package scripts; Baseline CI runs it with `--check` | a hand-written copy of a manifest drifts silently |
+| context pack | `operations.md`, `deployment.md` | plus `current.md`, `decisions.md`, `open-risks.md` | cirrus-baseline's shape; the three new pages are this repository's own and no module places them (the leak gate still allows exactly two) |
+| status | SA5 "in review", on a branch | SA5 shipped and tagged `baseline-v1`; `design.md` §3/§5 list the four migrations and the supabase root as SA5 left them | the tag existed; the documents had not caught up |
+
+## Verified (SA6)
+
+- `testing/{manifest,phases,coverage,rebrand,retouch,bootstrap-defer}.test.sh`
+  green; `gen-component-docs.py --check` green (7 components, 21 pages).
+- `orun new --status` at v2.58.11: `01-product` 159 files (140 on
+  `baseline-v1`), `02-docs` hook-only.
+- `testing/leak.test.sh` at v2.58.11: 159 files derived, 157 text files
+  read; ai/context still exactly the two declared pages; the generated pages
+  name no factory path.
+- `testing/placement.test.sh` at v2.58.11: 159 files placed, both landings,
+  branded, re-tenanted, record rendered; the product's own plan orders
+  supabase → cloudflare-hyperdrive → db-migrate → web on stage and prod,
+  enforced; `--resume` changes nothing.
+- `pnpm install --frozen-lockfile`, `wire:fixture` (the tree unchanged),
+  `typecheck`, `lint` (0 errors, upstream's 4 warnings), `test` (37 tests:
+  27 in `tests/web`, 10 in `tests/db`), `build` green.
+- `testing/e2e.test.sh` at v2.78.4 green: the finished product passes the
+  Checks sequence; the stage db-migrate lane applies all four migrations to
+  a local Postgres with Supabase's roles and a second apply applies nothing;
+  the stage web lane's install, `verify-app-structure`, `build-app`,
+  `verify-build-output` and `deploy-dry-run` pass in the staged job tree;
+  under `wrangler dev` with no Stripe key and no `AUTH_SECRET` the
+  component's own smoke passes and a sign-up, the dashboard and a sign-in
+  work; 0 of 5 public tables without RLS, and `anon`/`authenticated` read
+  and write none of the rows.
+- `orun task check SA-7` complete.

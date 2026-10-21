@@ -45,7 +45,7 @@ browser ──HTTPS──► saas-starter-web-<env>   (one Worker: proxy + pages
                      ▼
             Supabase Postgres  db.<project_ref>.supabase.co:5432
                      ▲
-            db-migrate  ── packages/db/src/migrations/{000_control,010_saas_starter_schema}/up.sql
+            db-migrate  ── packages/db/src/migrations/{000_control,010_saas_starter_schema,020_app_secrets,030_row_level_security}/up.sql
                            through the Management API, before the Worker deploys
 
 Stripe ──POST /api/stripe/webhook──► Worker: constructEventAsync (SubtleCrypto) → handleSubscriptionChange → getDb() → teams
@@ -114,12 +114,12 @@ apps/web                      the template (app/, components/, lib/, proxy.ts) +
   wiring.fixture.json         offline values for the verify lane
   .dev.vars.example           the Worker secrets, for wrangler dev
   open-next.config.ts         static-assets incremental cache (nothing revalidates for real)
-packages/db                   @saas/db: the migrations (000_control, 010_saas_starter_schema) + Lumen's runner
+packages/db                   @saas/db: the migrations (000_control, 010_saas_starter_schema, 020_app_secrets, 030_row_level_security — SA5) + Lumen's runner
 infra/db-migrate              applies them per environment through the Management API (after supabase)
-infra/terraform/supabase      the Supabase project per environment (Lumen's root + API keys)
+infra/terraform/supabase      the Supabase project per environment (Lumen's root; since SA5 it no longer reads the API keys)
 infra/terraform/cloudflare-hyperdrive   the Hyperdrive config per environment, fronting that database
 tests/web                     vitest: session sign/verify, bcrypt, the proxy's decisions, the webhook route (mocked Stripe)
-tests/db                      vitest: manifest checksums, offline plan
+tests/db                      vitest: manifest checksums, offline plan, row-level security on every table (PGlite)
 ```
 
 ## 6. Alternatives rejected
