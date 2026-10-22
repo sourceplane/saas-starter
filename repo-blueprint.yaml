@@ -36,11 +36,17 @@ inputs:
     description: The product's display name (e.g. "Acme Cloud") — beside the logo and in every page title.
   productdomain:
     type: string
-    required: true
+    default: ""
     description: >-
-      The domain the product will answer on (e.g. acme.dev) — BASE_DOMAIN and
-      the custom-domain guidance. It does not need to exist: the app answers
-      on workers.dev from its first deploy.
+      The product's own domain, once it has one (e.g. acme.dev). NOT ASKED:
+      the app answers on workers.dev from its first deploy, and a domain is
+      an owner's step after it. Empty, the rebrand writes the reserved
+      placeholder `<reponame>.example.com` where the domain goes (BASE_DOMAIN
+      under each environment's `env:` in intent.yaml), so setting it later is
+      replacing that one string — the product's README, "Custom domain", says
+      how, together with the BASE_URL in apps/web/wrangler.template.jsonc
+      that Stripe's checkout and billing-portal redirects return to. Pass it
+      with --set only to brand a hand-run build with a domain it already has.
   githuborg:
     type: string
     pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"

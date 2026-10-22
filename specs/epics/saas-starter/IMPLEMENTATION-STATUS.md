@@ -12,6 +12,7 @@ the code departed from `design.md` or from the upstream template.
 | SA4 — ready to instantiate | ✅ Shipped | [#5](https://github.com/sourceplane/saas-starter/pull/5) |
 | SA5 — a baseline | ✅ Shipped | [#6](https://github.com/sourceplane/saas-starter/pull/6) (SA-6), tagged `baseline-v1` |
 | SA6 — the cirrus standard | ✅ Shipped | [#7](https://github.com/sourceplane/saas-starter/pull/7) (SA-7, SA-8), tagged `baseline-v2` |
+| SA7 — the domain is set later | ✅ Shipped | [#8](https://github.com/sourceplane/saas-starter/pull/8) (SA-9), tagged `baseline-v3` |
 
 ## Departures from the upstream template
 
@@ -296,3 +297,50 @@ Verified:
   work; 0 of 5 public tables without RLS, and `anon`/`authenticated` read
   and write none of the rows.
 - `orun task check SA-7` complete.
+
+## The domain is set later (SA7, SA-9)
+
+The console asked for the product's domain, with help text that said it did
+not need to exist — and nothing in the build needed one: the app answers on
+workers.dev from its first deploy; Stripe's checkout `success_url` and
+`cancel_url` and the billing portal's `return_url` are built from `BASE_URL`,
+which `apps/web/wrangler.template.jsonc` sets to the environment's workers.dev
+URL; the app's own auth (a signed cookie) needs no origin; and the one place
+the repository names the domain is `BASE_DOMAIN` under each environment's
+`env:` in `intent.yaml`, which nothing builds a URL from. A domain is an
+owner's step after the bootstrap (README, "Custom domain"), so the form no
+longer asks for it.
+
+- `blueprint.yaml` declares no `productdomain` input; the console's Product
+  step asks for the product's name alone.
+- `repo-blueprint.yaml`'s `productdomain` is optional, default empty. No hook,
+  probe or `when:` reads it — the only use is the `.rebrand/values.json`
+  template, which writes `""`. A hand-run build may still pass
+  `--set productdomain=` for a product that already has its domain.
+- `rebrand.mjs` no longer requires it. Empty, it brands the reserved
+  placeholder `<reponame>.example.com` (RFC 2606 — never someone else's
+  domain) where the domain goes — `BASE_DOMAIN` in dev, stage and prod — so
+  setting it later is replacing one string; the product README and
+  `ai/context/operations.md` say so, beside the `BASE_URL` that actually
+  moves Stripe's redirects onto the domain.
+- Stripe's URLs are unchanged: `BASE_URL` stays the workers.dev URL until an
+  owner sets it. The placeholder never reaches Stripe.
+- `testing/fixtures/acme.json` carries no domain, so the leak gate, the
+  offline bootstrap and the e2e tier exercise exactly what a console build
+  supplies; `testing/rebrand.test.sh` pins the placeholder for an absent and
+  an empty domain; `baseline.yml`'s blueprint read sets no domain.
+
+Nothing that needs a domain was removed — it waits for one.
+
+Verified: `testing/{manifest,phases,coverage,rebrand,retouch,bootstrap-defer}.test.sh`
+green (rebrand: 31 checks, the two new ones included); `gen-component-docs.py
+--check` green (7 components); `orun new --status` on `repo-blueprint.yaml`
+with no domain (01-product pending, 159 files), `testing/leak.test.sh` (159
+files derived, 157 text files read) and `testing/placement.test.sh` (159
+tracked files; supabase → cloudflare-hyperdrive → db-migrate → web enforced
+on stage and prod; `--resume` changes nothing) at v2.58.11. The offline
+bootstrap of the fixture, which names no domain, writes
+`"productdomain": ""` and brands `acme-saas.example.com` into the product's
+three `BASE_DOMAIN` lines, its README and its `operations.md` (5 lines, 3
+files), with no `saas-starter.example.com` left. `orun task check SA-9`
+complete.
