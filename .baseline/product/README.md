@@ -166,6 +166,13 @@ own domain, attach the domain to the Worker in Cloudflare (Workers & Pages →
 in `apps/web/wrangler.template.jsonc` to it — Stripe sends the browser back
 there — run `pnpm run wire:fixture`, and merge.
 
+The repository also names the domain in one place, `BASE_DOMAIN` under each
+environment's `env:` in `intent.yaml`, which the product was born with as the
+reserved placeholder `saas-starter.example.com`. Nothing builds a URL from it —
+Stripe's checkout and billing-portal redirects follow `BASE_URL` — so
+replacing it moves nothing by itself; it records the domain. Replace it with
+yours in the same pull request as `BASE_URL`.
+
 ## CI
 
 | Workflow | What it runs |

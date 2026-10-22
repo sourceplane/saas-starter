@@ -32,7 +32,7 @@ departure.
 git clone --depth 1 --branch <baseline-tag> https://github.com/sourceplane/saas-starter
 cd saas-starter
 orun new --blueprint repo-blueprint.yaml --out ~/products/acme-saas --run-hooks --resume \
-  --set reponame=acme-saas --set productname="Acme Cloud" --set productdomain=acme.dev \
+  --set reponame=acme-saas --set productname="Acme Cloud" \
   --set githuborg=acme-inc --set subdomain=<workers-dev-subdomain>
 ```
 

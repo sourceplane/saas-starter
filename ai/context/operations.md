@@ -155,7 +155,7 @@ orun integrations list --org <ws> --json && orun cloud check --org <ws>
 | redeploy without a change | edit the last line of the component's `component.yaml` (`# orun: redeploy <reason> <stamp>`) and merge — it is a deploy trigger, nothing reads it |
 | connect Stripe | above |
 | rotate the session key | `wrangler secret put AUTH_SECRET --name saas-starter-web-<env>` (32+ random bytes); every session ends |
-| serve a custom domain | attach it to the Worker in Cloudflare, and change `BASE_URL` in `apps/web/wrangler.template.jsonc` (Stripe redirects back to it) |
+| serve a custom domain | attach it to the Worker in Cloudflare (README, "Custom domain"), change `BASE_URL` in `apps/web/wrangler.template.jsonc` (Stripe redirects back to it), and replace the placeholder `saas-starter.example.com` in `intent.yaml`'s `BASE_DOMAIN` with it (a record; nothing builds a URL from it) |
 | headless credentials | `ORUN_TOKEN` (workspace-scoped) + `GITHUB_TOKEN` |
 
 The deployment record is the bootstrap's `02-docs` phase. Re-running it (the
