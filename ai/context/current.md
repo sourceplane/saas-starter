@@ -26,7 +26,7 @@ and serves without it.
 |---|---|
 | Latest tag | `baseline-v3` (SA7, [#8](https://github.com/sourceplane/saas-starter/pull/8) — the domain is set later: the console asks for no domain, and a product is born with the placeholder `<reponame>.example.com` in `BASE_DOMAIN` for an owner to replace) |
 | Before it | `baseline-v2` (SA6, [#7](https://github.com/sourceplane/saas-starter/pull/7) — the cirrus standard: no kiox, generated component docs, this context pack, and the workers.dev subdomain read from the Cloudflare connection instead of asked); `baseline-v1` (SA5, [#6](https://github.com/sourceplane/saas-starter/pull/6) — the baseline) |
-| Proven live | No. Everything short of the platform is proven offline in Baseline CI: the e2e tier migrates a local Postgres with the product's own runner, builds in orun's staged job tree, and signs a user up and in with no Stripe key and no `AUTH_SECRET`. No bootstrap from a tag has run against a workspace: neither Terraform root has been applied, db-migrate has not run against a real project, nothing has deployed, and the card's twenty minutes is unmeasured (SA-M) |
+| Proven live | No. Everything short of the platform is proven offline in Baseline CI: the e2e tier migrates a local Postgres with the product's own runner, builds in orun's staged job tree, and signs a user up and in with no Stripe key and no `AUTH_SECRET`. No bootstrap from a tag has run against a workspace: neither Terraform root has been applied, db-migrate has not run against a real project, nothing has deployed, and the card's eighteen minutes is unmeasured (SA-M) |
 
 ## Where to read
 

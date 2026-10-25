@@ -12,22 +12,27 @@ not separate workflows. The console card the platform renders is
 brokered secrets and the programme, and `testing/manifest.test.sh` holds it
 to what the build document does.
 
-Target wall-clock: **about twenty minutes** — an estimate summed from the
-phases until a bootstrap measures it: one landing, then one convergence per
-environment (stage and prod side by side until `02-docs` restores the
+Target wall-clock: **about eighteen minutes** — an estimate summed from the
+phases (17 + 1) until a bootstrap measures it. The shape: the task set-up in
+the background while ONE landing is placed, branded and checked in the box
+(`orun validate` and `orun plan`, no runner waited for), then one convergence
+per environment (stage and prod side by side until `02-docs` restores the
 promotion gate) that creates the Supabase project (five to seven minutes),
 the Hyperdrive config, applies the migrations and builds and deploys the app,
-in that order.
+in that order, then a short docs landing.
 
 ## 0. What you need
 
 - GitHub org access (repository creation) and a machine with `git`, `node`
   (≥ 22), `pnpm` (10.12.1), `python3` with PyYAML, `curl`, and the `orun`
-  CLI **≥ v2.58.11** — the floor for RUNNING the bootstrap (the phase overlay,
-  landings that wait on the PR's whole CI run, `githubOwner` on the doctor
-  probe, `environments` on the secrets probe, `from: workspace`). The
-  product's own `ci.yml` pins its lanes separately (v2.78.4), and that pin is
-  what reads the per-edge `mode` rules the convergence order relies on.
+  CLI **≥ v2.88.0** — the floor for RUNNING the bootstrap (the phase overlay,
+  `githubOwner` on the doctor probe, `from: workspace`, the deploy
+  credentials minted in one `secrets` reconcile per provider, the task set-up
+  run in the background (`background: true`), and landings checked in the box
+  before they merge (`checks: local`)). The product's own `ci.yml` pins its
+  lanes separately (v2.78.4), and that pin — or anything newer, as the floor
+  is — is what reads the per-edge `mode` rules the convergence order relies
+  on.
 - A **Cloudflare** account (the free plan is enough for one Worker with
   static assets and Hyperdrive) and its Account API token with the
   permission groups the console's Connect recipe lists — Workers Scripts and
@@ -83,8 +88,8 @@ phase whose files are present but branded derives as `drifted`, and
 
 | phase | what it lands | verified by |
 |---|---|---|
-| `01-product` | the repository, created and linked; the five brokered credentials; then the whole product in one PR — intent, CI, tooling, identity, the Supabase and Hyperdrive Terraform roots, the migrations, the app and its tests | the convergence green (supabase → cloudflare-hyperdrive → db-migrate → web, per environment), the four published secrets on stage and prod, `/` and `/api/health` answering on both workers.dev URLs |
-| `02-docs` | `ai/context/deployment.md` from probed facts (Stripe's state included); prod's promotion gate and dev's push lanes restored | the final probe |
+| `01-product` | the repository, created and linked; the five brokered credentials; then the whole product in one PR — intent, CI, tooling, identity, the Supabase and Hyperdrive Terraform roots, the migrations, the app and its tests | its commit validated and planned in the box (as the PR and as the merge), then merged; the convergence green (supabase → cloudflare-hyperdrive → db-migrate → web, per environment — each resolving what the apply before it published); `/` and `/api/health` answering on both workers.dev URLs |
+| `02-docs` | `ai/context/deployment.md` from probed facts (Stripe's state included); prod's promotion gate and dev's push lanes restored | the render's own probes, recorded; the commit checked in the box and merged |
 
 ```bash
 orun new --blueprint repo-blueprint.yaml --out ~/products/acme-saas --run-hooks \
@@ -182,10 +187,10 @@ bash testing/e2e.test.sh         # + network for pnpm, psql and a PostgreSQL ser
 The offline bootstrap (`testing/lib/bootstrap.sh`) places both phases in
 order and finishes each with the blueprint's OWN `run:` hooks — read out of
 `repo-blueprint.yaml`, not transcribed — so the retouch marker, the rebrand,
-the re-tenant, the deferrals and their restore, the lockfile and the
-deployment record all run exactly as a real bootstrap runs them. Only the
-platform's typed actions (task, repo, reconcile, land, watch, secrets,
-probe) and the `link` step are stood in for, a landing becoming a commit.
+the re-tenant, the deferrals and their restore and the deployment record
+all run exactly as a real bootstrap runs them. Only the platform's typed
+actions (task, repo, reconcile, land, watch, probe) and the `link` step are
+stood in for, a landing becoming a commit.
 
 What no test here can do is the clouds' half: create a Supabase project,
 apply the Hyperdrive config, mint a token, deploy for real. The Terraform
@@ -225,13 +230,16 @@ at the tag and refuses the whole catalogue if it 404s.
 | supabase apply: project limit reached | the Supabase org's plan allows fewer projects than stage + prod need; free one or upgrade, then re-run `01-product` |
 | hyperdrive apply: Authentication error (10000) | the Hyperdrive token lacks the permission; reconnect Cloudflare with the recipe's permission groups and re-run the phase — the reconcile re-mints only what is missing |
 | hyperdrive or db-migrate: `secret resolution failed … SUPABASE_*` | the supabase apply for that environment did not publish; its lane's log says why. Both wait on it, enforced |
+| web: `secret resolution failed … WIRING_CLOUDFLARE_HYPERDRIVE_*` | a Hyperdrive apply published no wiring: the root lost its `secretOutputs`, or its lane was not in the plan. Re-run the phase; its retouch marker re-plans the Hyperdrive root |
+| `land` stops: `the landing's own check failed — orun plan for …` | the product's tree does not plan — the line after it is orun's own error (an unknown component type, a composition that does not resolve). Nothing was pushed. Fix the tree (or the baseline) and re-run the phase |
+| `land` waits on CI after all | the product's repository requires a status check on `main` (branch protection or a ruleset), so GitHub refused the early merge; the landing waits for the check as a `checks: ci` landing would, then merges |
 | db-migrate: `row-level security would lock the app out of …` | migration 030 refused: `postgres` (Hyperdrive's role) neither owns the tables in `public` nor bypasses RLS. Nothing was enabled; give `postgres` the tables or BYPASSRLS and re-run `01-product` |
 | web smoke: `/api/health` 503 | `database: unreachable` — the Hyperdrive config is wrong or the project is paused; `schema: missing` — db-migrate did not run for that environment |
 | `build-app` fails: `Symlink apps/web/node_modules/next is invalid, it points out of the filesystem root` | the product's intent pins stack-tectonic ≥ 0.20.0, whose lane-scoped install links each job's node_modules out of its tree, which Next 16's Turbopack refuses. Pin 0.19.0 (`intent.yaml` says why) |
 | `verify-app-structure` fails: `test -f "wrangler.jsonc"` | the product's `apps/web/wrangler.jsonc` is not committed. It must be — the check runs before the build in a fresh checkout (`pnpm run wire:fixture` renders it) |
 | Convergence failed AFTER the PR merged; re-running lands nothing | expected on its own — the files are on main. Re-run the phase (`--phase 01-product`, `--redo 01-product`, or the console's Retry): its `retouch` hook gives the landing a diff and the components re-plan; the project and the config are adopted, not recreated |
-| The convergence reported green, then `verify` got 404 | a second workflow ran on the push to main and the watch took its run. Only `ci.yml` may run on a push to main; `checks.yml` runs on pull requests only |
+| The convergence reported green, then `verify` got 404 | a second workflow ran on the push to main and the watch took its run. Only `ci.yml` may run on a push to main |
 | The product's `intent.yaml` says `workspace: ws_SET_ME` | `orunWorkspace` was empty and the build ran outside a workspace; set it and re-run `01-product` |
 | A bootstrap stopped before `02-docs`; prod no longer waits on stage | the gate is deferred, not dropped: run `02-docs`, or `node tooling/bootstrap/promotion.mjs --restore --file <product>/intent.yaml` |
 | `✕ input "productname" is required` | all three required inputs (`reponame`, `productname`, `githuborg`) must be set on every invocation, single-phase ones included |
-| `unknown flag: --phase` or a parse error in the blueprint | the CLI is below the v2.58.11 floor |
+| `unknown flag: --phase`, `has no parameter "checks"`, `has no parameter "secrets"` or another parse error in the blueprint | the CLI is below the v2.88.0 floor |
