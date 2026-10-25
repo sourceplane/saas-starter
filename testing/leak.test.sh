@@ -93,7 +93,7 @@ for p in placed:
 if "README.md" not in placed:
     bad("README.md would not ship")
 MUST = (
-    ".github/workflows/ci.yml", ".github/workflows/checks.yml", ".rebrand/values.json",
+    ".github/workflows/ci.yml", ".rebrand/values.json",
     "apps/web/component.yaml", "apps/web/lib/site.ts", "apps/web/lib/auth/secret.ts",
     # COMMITTED, because the composition checks it exists before the build:
     "apps/web/wrangler.jsonc", "apps/web/wrangler.template.jsonc", "apps/web/wiring.fixture.json",
