@@ -214,8 +214,8 @@ function trackedFiles() {
 //
 // This tree IS Vercel's Next.js SaaS Starter, whose own name happens to be
 // this baseline's slug. Where the code names its upstream — the marketing
-// page's "View the code" and terminal, the "Deploy your own" button, the
-// app's README — the slug is the upstream's, and renaming it would point a
+// page's "View the code" and terminal, the app's README — the slug is the
+// upstream's, and renaming it would point a
 // product's visitors at `github.com/nextjs/<their-repo>`, which does not
 // exist. Protected from every rule, and allowed by the leftover sweep.
 const UPSTREAM = [

@@ -141,10 +141,13 @@ for comp_path in ("apps/web", "infra/terraform/supabase", "infra/terraform/cloud
         if not ref.startswith(f"secret://{ws}/{repo}/"):
             bad(f"{comp_path} {k} resolves from {ref} — not the product's workspace and project")
 
-# The upstream template's own links survive the rename.
+# The upstream template's own link survives the rename, and "Deploy your own"
+# goes to Orunbase's baselines, a path that spells no slug.
 home = (tree / "apps/web/app/(dashboard)/page.tsx").read_text()
-if 'href="https://github.com/nextjs/saas-starter"' not in home or "next-js-saas-starter" not in home:
-    bad("the marketing page's links to the upstream template were renamed")
+if 'href="https://github.com/nextjs/saas-starter"' not in home:
+    bad("the marketing page's link to the upstream template was renamed")
+if 'href="https://orunbase.com/baselines/"' not in home:
+    bad("the marketing page's \"Deploy your own\" does not go to orunbase.com/baselines/")
 
 # The wrangler config is committed, and is the fixture render of the
 # (rebranded) template — the composition checks it exists before the build.
