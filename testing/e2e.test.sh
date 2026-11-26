@@ -356,10 +356,10 @@ if name not in [text(m) for m in re.findall(r'<span class="ml-2 text-xl[^"]*">(.
     bad(f"the header beside the logo does not read {name!r}")
 if ">ACME<" in home:
     bad("the home page still carries the baseline's name")
-for upstream in ('href="https://github.com/nextjs/saas-starter"',
-                 'href="https://vercel.com/templates/next.js/next-js-saas-starter"'):
-    if upstream not in home:
-        bad(f"the marketing page's upstream link was renamed: {upstream} is gone")
+if 'href="https://github.com/nextjs/saas-starter"' not in home:
+    bad("the marketing page's upstream link was renamed")
+if 'href="https://orunbase.com/baselines/"' not in home:
+    bad("the marketing page's \"Deploy your own\" does not go to orunbase.com/baselines/")
 
 s, _, pricing = req("/pricing")
 if s != 200:
